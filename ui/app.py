@@ -4,7 +4,7 @@ import json
 import os
 import sys
 
-
+api_key = st.secrets["OPENROUTER_API_KEY"]
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 API_BASE = "http://127.0.0.1:8000"
