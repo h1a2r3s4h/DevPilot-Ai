@@ -2,7 +2,7 @@
 fastapi==0.122.0
 uvicorn==0.38.0
 python-dotenv==1.1.1
-pydantic==2.11.10
+pydantic==2.7.4
 pydantic-settings==2.10.1
 python-multipart==0.0.20
 
@@ -15,7 +15,7 @@ sentence-transformers
 numpy==2.3.5
 
 # Agents
-crewai==1.7.2
+crewai==0.11.2  
 mcp==1.16.0
 
 # Rate Limiting
