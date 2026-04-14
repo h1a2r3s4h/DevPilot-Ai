@@ -37,5 +37,3 @@ dist/
 htmlcov/
 .pytest_cache/
 
-# Misc
-*.swp
