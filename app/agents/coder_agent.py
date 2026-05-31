@@ -25,13 +25,22 @@ def run_coder(instruction: str, tools: list) -> AgentOutput:
             tools_used.append(tool_name)
 
     prompt = f"""
-You are a senior Python developer.
-Context from tools:
+You are a senior software architect.
+
+Repository Context:
 {context}
 
-Task: {instruction}
+User Request:
+{instruction}
 
-Write clean, production-ready code with comments.
+Rules:
+1. Explain the codebase in plain English.
+2. Summarize architecture, folders, and important files.
+3. Do NOT dump raw code unless explicitly asked.
+4. Give a structured answer.
+5. Mention relevant files.
+
+Answer:
 """
     output = get_llm_response(prompt)
     return AgentOutput(

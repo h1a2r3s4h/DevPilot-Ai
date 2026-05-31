@@ -1,7 +1,37 @@
-from app.rag.retriever import Retriever
+from app.rag.hybrid_retriever import HybridRetriever
+from app.rag.reranker import Reranker
 
-retriever = Retriever()
+hybrid_retriever = HybridRetriever()
+reranker = Reranker()
+
+
 def query_rag(query: str) -> str:
-    docs = search_faiss(query)  # your existing function
+    # Hybrid Search (BM25 + FAISS)
+    docs = hybrid_retriever.search(
+        query,
+        k=20
+    )
 
-    return "\n\n".join([doc["content"] for doc in docs])
+    docs = reranker.rerank(
+        query,
+        docs,
+        top_k=15
+    )
+
+    print("\n=== HYBRID RESULTS ===")
+    print(docs)
+
+    # Rerank Results
+    docs = reranker.rerank(
+        query,
+        docs,
+        top_k=8
+    )
+
+    print("\n=== RERANKED RESULTS ===")
+    print(docs)
+
+    # Final Context
+    context = "\n\n".join(docs)
+
+    return context

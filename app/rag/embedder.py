@@ -2,7 +2,7 @@ from sentence_transformers import SentenceTransformer
 
 class Embedder:
     def __init__(self):
-        self.model = SentenceTransformer("all-MiniLM-L6-v2")
+        self.model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
     def embed(self, texts: list[str]):
         return self.model.encode(texts).tolist()

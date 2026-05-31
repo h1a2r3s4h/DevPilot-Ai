@@ -5,12 +5,26 @@ import shutil
 import tempfile
 from fastapi import APIRouter
 from pydantic import BaseModel
-from app.services.rag_service import retriever
+from app.services.rag_service import hybrid_retriever as retriever
 from git import Repo
 
 router = APIRouter()
 
-SUPPORTED_EXT = (".py", ".js", ".ts", ".md", ".txt")
+SUPPORTED_EXT = (
+    ".py",
+    ".js",
+    ".jsx",
+    ".tsx",
+    ".ts",
+    ".md",
+    ".txt",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".html",
+    ".css",
+    ".scss"
+)
 EXCLUDED_DIRS = {"venv", ".venv", "node_modules", "__pycache__", ".git", ".mypy_cache"}
 REPO_REGISTRY = "repo_registry.json"
 
@@ -28,7 +42,7 @@ def read_file(path):
         print(f"Error reading {path}: {e}")
         return ""
 
-def chunk_code_lines(text: str, chunk_size: int = 50) -> list[str]:
+def chunk_code_lines(text: str, chunk_size: int = 30) -> list[str]:
     lines = text.split("\n")
     chunks = []
     for i in range(0, len(lines), chunk_size):
@@ -88,28 +102,71 @@ def load_repos() -> dict:
 @router.post("/upload-repo")
 async def upload_repo(request: RepoRequest):
     path = request.path
+
+    # print("=" * 50)
+    # print("UPLOAD REPO CALLED")
+    # print("PATH EXISTS:", os.path.exists(path))
+    # print("PATH IS DIR:", os.path.isdir(path))
+    # print("PATH:", path)
+
     repo_name = os.path.basename(path)
     save_repo(repo_name, path)
+
     all_chunks = []
     all_meta = []
+
     for root, dirs, files in os.walk(path):
         dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+
+        print("ROOT:", root)
+        print("FILES FOUND:", len(files))
+
         for file in files:
+            print("FILE:", file)
+
             if file.endswith(SUPPORTED_EXT):
                 full_path = os.path.join(root, file)
+
                 content = read_file(full_path)
+
+                if not content.strip():
+                    continue
+
                 if file.endswith(".py"):
                     chunks = chunk_by_ast(content, full_path)
                 else:
-                    chunks = chunk_code_lines(content)
+                    raw_chunks = chunk_code_lines(content)
+
+                    chunks = [
+                        f"# File: {full_path}\n\n{chunk}"
+                        for chunk in raw_chunks
+                    ]
+
                 for chunk in chunks:
                     if chunk.strip():
-                        all_chunks.append(chunk)
+                        all_chunks.append(
+    f"""
+FILE: {full_path}
+SOURCE: {file}
+
+{chunk}
+"""
+)
                         all_meta.append({
                             "source": file,
                             "path": full_path
                         })
+
+    print("TOTAL CHUNKS:", len(all_chunks))
+
+    if not all_chunks:
+        return {
+            "message": "No chunks found",
+            "chunks_added": 0
+        }
+
     retriever.add_documents(all_chunks, all_meta)
+
     return {
         "message": "Repo indexed",
         "chunks_added": len(all_chunks)

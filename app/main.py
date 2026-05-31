@@ -10,10 +10,18 @@ from app.routes.upload_repo import router as upload_repo_router
 from app.routes.stream import router as stream_router
 from app.routes.agent_run import router as agent_run_router
 from app.routes.mcp_route import router as mcp_router
-
+from app.routes.upload_repo import router as repo_router
+from fastapi.middleware.cors import CORSMiddleware
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # for development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
@@ -30,3 +38,4 @@ app.include_router(upload_repo_router)
 app.include_router(stream_router)
 app.include_router(agent_run_router)
 app.include_router(mcp_router)
+app.include_router(repo_router)

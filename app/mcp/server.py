@@ -2,7 +2,7 @@ import asyncio
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
-from app.services.rag_service import retriever
+from app.services.rag_service import hybrid_retriever as retriever
 from app.services.llm_provider import get_llm_response
 from app.agents.orchestrator import run_multi_agent_system
 

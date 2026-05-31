@@ -3,14 +3,14 @@
 ```
 ██████╗ ███████╗██╗   ██╗██████╗ ██╗██╗      ██████╗ ████████╗
 ██╔══██╗██╔════╝██║   ██║██╔══██╗██║██║     ██╔═══██╗╚══██╔══╝
-██║  ██║█████╗  ██║   ██║██████╔╝██║██║     ██║   ██║   ██║   
-██║  ██║██╔══╝  ╚██╗ ██╔╝██╔═══╝ ██║██║     ██║   ██║   ██║   
-██████╔╝███████╗ ╚████╔╝ ██║     ██║███████╗╚██████╔╝   ██║   
-╚═════╝ ╚══════╝  ╚═══╝  ╚═╝     ╚═╝╚══════╝ ╚═════╝    ╚═╝   
-                                                     A I  ⚡
+██║  ██║█████╗  ██║   ██║██████╔╝██║██║     ██║   ██║   ██║
+██║  ██║██╔══╝  ╚██╗ ██╔╝██╔═══╝ ██║██║     ██║   ██║   ██║
+██████╔╝███████╗ ╚████╔╝ ██║     ██║███████╗╚██████╔╝   ██║
+╚═════╝ ╚══════╝  ╚═══╝  ╚═╝     ╚═╝╚══════╝ ╚═════╝    ╚═╝
+                                                    A I  ⚡
 ```
 
-**A production-grade, multi-agent AI developer assistant that understands your codebase,**  
+**A production-grade, multi-agent AI developer assistant that understands your codebase,**
 **executes code autonomously, and answers with context-aware precision.**
 
 ---
@@ -36,8 +36,9 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 
 ## ✨ Features at a Glance
 
-| 🔍 | **RAG Pipeline** | FAISS vector store + sentence-transformers for semantic code search |
+| | Feature | Description |
 |---|---|---|
+| 🔍 | **RAG Pipeline** | FAISS vector store + sentence-transformers for semantic code search |
 | 🤖 | **Multi-Agent System** | Planner → Coder → Executor → Reviewer with dynamic routing |
 | ⚙️ | **Real Code Execution** | Agents actually run Python code in sandboxed subprocesses |
 | 🌊 | **Streaming Responses** | Token-by-token SSE streaming — just like ChatGPT |
@@ -87,6 +88,202 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 
 ---
 
+## 🔄 End-to-End Request Flows
+
+### Ask (RAG) Mode
+
+When a user asks a question about a codebase:
+
+```
+User Question
+      ↓
+FastAPI Endpoint
+      ↓
+Hybrid Retriever (BM25 + FAISS)
+      ↓
+Top Relevant Chunks
+      ↓
+Reranker
+      ↓
+Context Builder
+      ↓
+Gemini 2.0 Flash
+      ↓
+Streaming Response (SSE)
+      ↓
+Frontend
+```
+
+### Agent Mode
+
+When a user submits a development task:
+
+```
+User Task
+     ↓
+Planner Agent  →  Creates Execution Plan
+     ↓
+Coder Agent
+     ↓
+Reviewer Agent
+     ↓
+Debugger Agent
+     ↓
+Executor Agent
+     ↓
+Final Response
+```
+
+Each agent receives structured outputs from previous agents and contributes its own specialized analysis.
+
+---
+
+## 🔍 Retrieval Architecture
+
+DevPilot AI uses **Hybrid Retrieval** rather than relying solely on vector similarity.
+
+### BM25 Retrieval
+
+Excels at **exact keyword matches** — API names, function names, class names, variable names.
+
+```
+Query: "create_user()"
+→ BM25 directly matches exact occurrences
+```
+
+### Vector Retrieval
+
+Excels at **semantic understanding** — similar code patterns, natural language queries.
+
+```
+Query: "How is authentication implemented?"
+→ Vector search finds generate_jwt_token() even without exact keyword match
+```
+
+### Hybrid Search Pipeline
+
+```
+Query
+ ↓
+BM25 Search ──┐
+              ├── Merge Results → Rerank → Final Context
+FAISS Search ─┘
+```
+
+This significantly improves retrieval quality compared to pure vector search.
+
+---
+
+## 🤖 Agent Responsibilities
+
+### Planner Agent
+
+| | |
+|---|---|
+| **Responsibilities** | Understand user intent, select agents & tools, create execution plan |
+| **Output** | Structured JSON execution plan |
+
+```json
+{
+  "steps": [
+    { "agent": "coder",    "tools": ["rag_search"] },
+    { "agent": "reviewer"                           },
+    { "agent": "executor"                           }
+  ]
+}
+```
+
+### Coder Agent
+
+| | |
+|---|---|
+| **Responsibilities** | Analyze repo context, explain implementation, generate code, understand architecture |
+| **Tools** | RAG Search, Memory |
+| **Output** | Implementation findings, relevant files, code flow explanation |
+
+### Reviewer Agent
+
+| | |
+|---|---|
+| **Responsibilities** | Code quality, architecture review, best practice analysis, maintainability assessment |
+| **Output** | Strengths, weaknesses, refactoring suggestions |
+
+### Debugger Agent
+
+| | |
+|---|---|
+| **Responsibilities** | Bug detection, security analysis, edge case discovery, performance analysis |
+| **Output** | Potential issues, security concerns, optimization opportunities |
+
+### Executor Agent
+
+| | |
+|---|---|
+| **Responsibilities** | Aggregate all findings, produce final response, generate implementation plan |
+| **Output** | Final recommendation, summary, actionable next steps |
+
+---
+
+## 📦 Repository Indexing Pipeline
+
+```
+Repository
+    ↓
+Directory Walker
+    ↓
+File Filter
+    ↓
+Chunking Engine
+    ↓
+Embedding Model (all-MiniLM-L6-v2)
+    ↓
+FAISS Index
+```
+
+### Python Files — AST-Based Chunking
+
+Instead of arbitrary line splits, the system extracts **semantic units**:
+
+```
+❌ Naive:   Lines 1–50 | Lines 51–100   (may cut mid-function)
+✅ DevPilot: class UserService | def create_user()   (complete logical units)
+```
+
+**Benefits:** better retrieval precision · better context quality · lower token usage
+
+### Other Files — Line-Based Chunking
+
+JavaScript, TypeScript, React, Markdown, JSON, YAML → **50 lines per chunk** for predictable sizes and efficient indexing.
+
+---
+
+## 🧠 Memory Architecture
+
+| Type | Storage | Scope | Purpose |
+|---|---|---|---|
+| **Short-Term** | In-memory `MemoryItem` list | Current session | Conversation continuity |
+| **Long-Term** | FAISS `memory_index` | Persists across sessions | Recall previous discussions |
+
+Both memory types are injected into every LLM prompt for full context continuity.
+
+---
+
+## 🌊 Streaming Architecture
+
+```
+LLM Token Stream
+      ↓
+FastAPI StreamingResponse
+      ↓
+Browser Event Stream (SSE)
+      ↓
+Real-Time UI Updates
+```
+
+**Benefits:** faster perceived latency · better UX · ChatGPT-like interaction model
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer | Technology | Purpose |
@@ -112,65 +309,65 @@ devpilot-ai/
 │
 ├── 📂 app/
 │   ├── 🤖 agents/
-│   │   ├── orchestrator.py       # Dynamic task router
-│   │   ├── planner_agent.py      # Plans steps + tools
-│   │   ├── coder_agent.py        # Writes code
-│   │   ├── executor_agent.py     # Runs code
-│   │   ├── debugger_agent.py     # Fixes bugs
-│   │   ├── reviewer_agent.py     # Reviews output
-│   │   ├── agent_output.py       # Structured output schema
+│   │   ├── orchestrator.py         # Dynamic task router
+│   │   ├── planner_agent.py        # Plans steps + tools → JSON execution plan
+│   │   ├── coder_agent.py          # Writes & explains code
+│   │   ├── executor_agent.py       # Runs code in sandboxed subprocess
+│   │   ├── debugger_agent.py       # Bug detection & security analysis
+│   │   ├── reviewer_agent.py       # Code quality & architecture review
+│   │   ├── agent_output.py         # Structured output schema
 │   │   └── tasks.py
 │   │
 │   ├── 🧠 memory/
-│   │   ├── short_term_memory.py  # Session-based memory
-│   │   ├── long_term_memory.py   # FAISS-based memory
-│   │   ├── memory_service.py     # Memory orchestrator
+│   │   ├── short_term_memory.py    # Session-based memory
+│   │   ├── long_term_memory.py     # FAISS-based persistent memory
+│   │   ├── memory_service.py       # Memory orchestrator
 │   │   └── memory_schema.py
 │   │
 │   ├── 🔍 rag/
-│   │   ├── embedder.py           # sentence-transformers
-│   │   ├── retriever.py          # RAG retriever
-│   │   └── vector_store.py       # FAISS vector store
+│   │   ├── embedder.py             # sentence-transformers encoder
+│   │   ├── retriever.py            # Hybrid BM25 + FAISS retriever
+│   │   └── vector_store.py         # FAISS vector store
 │   │
 │   ├── 🌐 routes/
-│   │   ├── ask.py                # /ask endpoint
-│   │   ├── stream.py             # /ask/stream SSE
-│   │   ├── upload.py             # File upload
-│   │   ├── upload_repo.py        # Repo indexing + GitHub
-│   │   ├── agent_run.py          # /agent/run + streaming
-│   │   └── mcp_route.py          # MCP HTTP endpoints
+│   │   ├── ask.py                  # /ask endpoint (blocking)
+│   │   ├── stream.py               # /ask/stream SSE
+│   │   ├── upload.py               # File upload
+│   │   ├── upload_repo.py          # Repo indexing + GitHub cloning
+│   │   ├── agent_run.py            # /agent/run + streaming
+│   │   └── mcp_route.py            # MCP HTTP endpoints
 │   │
 │   ├── ⚙️ services/
-│   │   ├── llm_provider.py       # OpenRouter LLM client
-│   │   ├── agent_service.py      # ask_llm with memory
-│   │   ├── rag_service.py        # RAG service
-│   │   └── crewai_llm.py         # Custom CrewAI LLM
+│   │   ├── llm_provider.py         # OpenRouter LLM client
+│   │   ├── agent_service.py        # ask_llm with memory injection
+│   │   ├── rag_service.py          # RAG service
+│   │   └── crewai_llm.py           # Custom CrewAI LLM wrapper
 │   │
 │   ├── 🔧 tools/
-│   │   ├── base_tool.py          # Tool interface
-│   │   ├── rag_search_tool.py    # RAG search tool
-│   │   ├── memory_tool.py        # Memory search tool
-│   │   ├── code_execution_tool.py # Python executor
-│   │   └── tool_registry.py      # Tool registry
+│   │   ├── base_tool.py            # Tool interface
+│   │   ├── rag_search_tool.py      # RAG search tool
+│   │   ├── memory_tool.py          # Memory search tool
+│   │   ├── code_execution_tool.py  # Python executor
+│   │   └── tool_registry.py        # Tool registry
 │   │
 │   ├── 🔌 mcp/
-│   │   └── server.py             # MCP server
+│   │   └── server.py               # MCP server
 │   │
 │   ├── ⚙️ config/
-│   │   └── settings.py           # Pydantic settings
+│   │   └── settings.py             # Pydantic settings
 │   │
-│   └── main.py                   # FastAPI app entry point
+│   └── main.py                     # FastAPI app entry point
 │
 ├── 🎨 ui/
-│   ├── app.py                    # Streamlit UI
-│   └── react-app/                # React UI (Vite)
+│   ├── app.py                      # Streamlit UI
+│   └── react-app/                  # React UI (Vite)
 │
 ├── 🧪 tests/
 │   └── test_agents.py
 │
-├── .env                          # Environment variables
-├── Dockerfile                    # Container config
-├── requirements.txt              # Python dependencies
+├── .env                            # Environment variables
+├── Dockerfile                      # Container config
+├── requirements.txt                # Python dependencies
 └── README.md
 ```
 
@@ -251,7 +448,7 @@ cd ui/react-app && npm install && npm run dev
 
 DevPilot AI ships with a fully compatible MCP server for **Claude Desktop**, **Cursor**, and **VS Code**.
 
-Add the following to your Claude Desktop config at  
+Add the following to your Claude Desktop config at
 `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
@@ -269,7 +466,7 @@ Add the following to your Claude Desktop config at
 }
 ```
 
-**Available MCP tools:**
+### Available MCP Tools
 
 | Tool | Description |
 |---|---|
@@ -289,7 +486,9 @@ Add the following to your Claude Desktop config at
 3. Other files → line-based chunking (50 lines/chunk)
 4. Each chunk embedded with all-MiniLM-L6-v2
 5. Vectors stored in FAISS with metadata
-6. At query time → top-k chunks retrieved by cosine similarity
+6. At query time → hybrid BM25 + FAISS retrieval
+7. Reranker selects top-k chunks
+8. Context assembled and passed to Gemini 2.0 Flash
 ```
 
 ### 🤖 Multi-Agent Flow
@@ -314,15 +513,49 @@ Both memory types are injected into every LLM prompt for full context continuity
 
 ---
 
+## 📈 Scalability Considerations
+
+**Current architecture** is designed for single-developer use and local deployment.
+
+**Future scaling path:**
+
+| Component | Current | Scaled Solution |
+|---|---|---|
+| Metadata storage | In-memory / file | PostgreSQL |
+| Vector database | FAISS (local) | Qdrant (distributed) |
+| Caching | None | Redis |
+| Background tasks | Synchronous | Celery workers |
+| Deployment | Local / Docker | Kubernetes |
+| Auth | None | Multi-user authentication |
+
+---
+
 ## 📋 Requirements
 
 ```
-fastapi          uvicorn          sentence-transformers
-faiss-cpu        openai           python-dotenv
-pydantic-settings crewai          gitpython
-slowapi          mcp              anthropic
-streamlit        requests
+fastapi              uvicorn              sentence-transformers
+faiss-cpu            openai               python-dotenv
+pydantic-settings    crewai               gitpython
+slowapi              mcp                  anthropic
+streamlit            requests
 ```
+
+---
+
+## 🎯 Key Engineering Concepts Demonstrated
+
+| Concept | Implementation |
+|---|---|
+| **Retrieval-Augmented Generation** | FAISS + sentence-transformers for semantic code retrieval |
+| **Hybrid Search** | BM25 keyword search + vector similarity, merged and reranked |
+| **Multi-Agent AI Systems** | CrewAI-based Planner, Coder, Reviewer, Debugger, Executor agents |
+| **Agent Orchestration** | Dynamic JSON execution plans with per-step tool selection |
+| **Vector Databases** | Custom FAISS implementation — no LangChain dependency |
+| **Memory Architectures** | Dual short-term (session) and long-term (FAISS) memory layers |
+| **Server-Sent Events** | Real-time token-by-token streaming for all LLM responses |
+| **Model Context Protocol** | Full MCP server integration for Claude Desktop, Cursor, VS Code |
+| **Repository Intelligence** | AST-based Python chunking + line-based for other languages |
+| **FastAPI Production Design** | Async endpoints, rate limiting, structured agent outputs |
 
 ---
 

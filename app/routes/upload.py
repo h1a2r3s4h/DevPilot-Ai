@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from app.services.rag_service import retriever
+from app.services.rag_service import hybrid_retriever as retriever
 from pypdf import PdfReader
 
 router = APIRouter()

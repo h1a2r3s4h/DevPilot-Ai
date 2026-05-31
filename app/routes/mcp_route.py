@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from app.services.rag_service import retriever
+from app.services.rag_service import hybrid_retriever as retriever
 from app.services.llm_provider import get_llm_response
 from app.agents.orchestrator import run_multi_agent_system
 
