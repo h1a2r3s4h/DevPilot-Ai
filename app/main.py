@@ -12,7 +12,7 @@ from app.routes.agent_run import router as agent_run_router
 from app.routes.mcp_route import router as mcp_router
 from app.routes.upload_repo import router as repo_router
 from fastapi.middleware.cors import CORSMiddleware
-limiter = Limiter(key_func=get_remote_address)
+from app.core.limiter import limiter
 
 app = FastAPI()
 app.add_middleware(

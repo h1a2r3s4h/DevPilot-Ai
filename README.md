@@ -20,6 +20,7 @@
 [![FAISS](https://img.shields.io/badge/FAISS-Vector_Store-blueviolet?style=for-the-badge)](https://github.com/facebookresearch/faiss)
 [![CrewAI](https://img.shields.io/badge/CrewAI-Multi_Agent-orange?style=for-the-badge)](https://crewai.com)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org)
+[![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
 [![MIT License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 </div>
@@ -38,52 +39,39 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 
 | | Feature | Description |
 |---|---|---|
-| 🔍 | **RAG Pipeline** | FAISS vector store + sentence-transformers for semantic code search |
-| 🤖 | **Multi-Agent System** | Planner → Coder → Executor → Reviewer with dynamic routing |
-| ⚙️ | **Real Code Execution** | Agents actually run Python code in sandboxed subprocesses |
+| 🔍 | **Hybrid RAG Pipeline** | BM25 + FAISS + Cross-Encoder reranking for precision retrieval |
+| 🤖 | **Multi-Agent System** | Planner → Coder → Reviewer → Debugger → Executor with dynamic routing |
+| ⚙️ | **Real Code Execution** | Agents run Python code in sandboxed subprocesses |
 | 🌊 | **Streaming Responses** | Token-by-token SSE streaming — just like ChatGPT |
 | 🧩 | **Dual Memory** | Short-term (session) + Long-term (FAISS) memory systems |
+| ⚡ | **Redis Caching** | Query response + embedding vector caching for reduced latency and LLM cost |
 | 📦 | **Multi-Repo Support** | Instantly switch between indexed codebases |
 | 🐙 | **GitHub Cloning** | Paste any public GitHub URL → auto-clone → index |
 | 🌳 | **Smart Chunking** | AST-based splitting at function/class boundaries |
-| 🔌 | **MCP Server** | Model Context Protocol integration for Claude Desktop |
+| 🔌 | **MCP Server** | Model Context Protocol integration for Claude Desktop & VS Code |
 | 🛡️ | **Rate Limiting** | 10 req/min per IP via SlowAPI |
 | 🎨 | **Dual UI** | Streamlit + React (Vite) dark premium interfaces |
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ System Architecture
 
 ```
-                         ┌─────────────────────────┐
-                         │       User Query         │
-                         └────────────┬────────────┘
-                                      │
-                         ┌────────────▼────────────┐
-                         │     FastAPI Backend      │
-                         └────────────┬────────────┘
-                                      │
-                    ┌─────────────────▼──────────────────┐
-                    │            Orchestrator             │
-                    │   Planner → decides agents + tools  │
-                    └──┬──────────┬──────────┬───────────┘
-                       │          │          │
-          ┌────────────▼─┐  ┌─────▼────┐  ┌─▼──────────┐  ┌───────────┐
-          │   Planner    │  │  Coder   │  │  Executor  │  │ Reviewer  │
-          │   Agent      │  │  Agent   │  │  Agent     │  │  Agent    │
-          └──────────────┘  └──────────┘  └────────────┘  └───────────┘
-                       │          │          │
-                    ┌──▼──────────▼──────────▼──┐
-                    │        Tool Registry       │
-                    │  RAG │ Memory │ Code Exec  │
-                    └──────────────┬────────────┘
-                                   │
-              ┌────────────────────┴──────────────────┐
-              │                                       │
-   ┌──────────▼──────────┐              ┌─────────────▼──────────┐
-   │    FAISS (RAG)       │              │   FAISS (Memory)       │
-   │    faiss_index       │              │   memory_index         │
-   └─────────────────────┘              └────────────────────────┘
+                              React UI
+                                 │
+                           FastAPI API
+                    ┌────────────┼────────────┐
+                    │            │             │
+               RAG Engine   Agent System   MCP Server
+                    │            │
+              BM25 + FAISS   CrewAI Agents
+                    │            │
+              Redis Cache    Tool Registry
+                    └────────────┘
+                           │
+                       OpenRouter
+                           │
+                      Gemini Flash
 ```
 
 ---
@@ -92,109 +80,122 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 
 ### Ask (RAG) Mode
 
-When a user asks a question about a codebase:
-
 ```
 User Question
       ↓
 FastAPI Endpoint
       ↓
+Redis Cache → Cache Hit? ──Yes──▶ Return Cached Answer
+      │ No
+      ▼
 Hybrid Retriever (BM25 + FAISS)
       ↓
-Top Relevant Chunks
+Merge Results
       ↓
-Reranker
+Cross-Encoder Reranker
       ↓
-Context Builder
+Top-K Context
       ↓
-Gemini 2.0 Flash
+Gemini 2.0 Flash (via OpenRouter)
       ↓
-Streaming Response (SSE)
+Store in Redis
       ↓
-Frontend
+Streaming Response (SSE) → React UI
 ```
 
 ### Agent Mode
 
-When a user submits a development task:
-
 ```
 User Task
      ↓
-Planner Agent  →  Creates Execution Plan
+Planner Agent  →  Creates JSON Execution Plan
      ↓
-Coder Agent
+┌────┬────────┬──────────┬──────────┐
+│    │        │          │          │
+Coder  Reviewer  Debugger  Executor
      ↓
-Reviewer Agent
+Structured Outputs  (previous_output = result.output)
      ↓
-Debugger Agent
-     ↓
-Executor Agent
-     ↓
-Final Response
+Final Response (streamed via SSE)
 ```
 
-Each agent receives structured outputs from previous agents and contributes its own specialized analysis.
+> Each agent receives the previous agent's structured output as context — no information is lost between steps.
 
 ---
 
-## 🔍 Retrieval Architecture
+## 🔍 Hybrid Retrieval Architecture
 
-DevPilot AI uses **Hybrid Retrieval** rather than relying solely on vector similarity.
+DevPilot AI uses a **3-stage retrieval pipeline** for maximum precision.
 
-### BM25 Retrieval
-
-Excels at **exact keyword matches** — API names, function names, class names, variable names.
-
+### Stage 1 — BM25 (Keyword Search)
+Exact matches for API names, function names, class names, variable identifiers.
 ```
-Query: "create_user()"
-→ BM25 directly matches exact occurrences
+Query: "create_user()"  →  BM25 directly matches exact occurrences
 ```
 
-### Vector Retrieval
-
-Excels at **semantic understanding** — similar code patterns, natural language queries.
-
+### Stage 2 — FAISS (Vector Search)
+Semantic understanding for natural language and conceptually related code.
 ```
 Query: "How is authentication implemented?"
-→ Vector search finds generate_jwt_token() even without exact keyword match
+→ Finds generate_jwt_token() via semantic similarity
 ```
 
-### Hybrid Search Pipeline
+### Stage 3 — Cross-Encoder Reranker
+Both result sets are merged and a cross-encoder model performs final reranking for the highest-quality top-K context passed to the LLM.
+
+| Component | Purpose |
+|---|---|
+| BM25 | Exact keyword matching |
+| FAISS | Semantic similarity |
+| Cross Encoder | Final reranking |
+| LLM | Answer generation |
+
+---
+
+## ⚡ Redis Caching Layer
 
 ```
-Query
- ↓
-BM25 Search ──┐
-              ├── Merge Results → Rerank → Final Context
-FAISS Search ─┘
+User Query
+     ↓
+Redis Cache
+     ↓
+Cache Hit? ──Yes──▶ Return Cached Answer (instant)
+     │ No
+     ▼
+BM25 + FAISS Retrieval → LLM → Store in Redis
 ```
 
-This significantly improves retrieval quality compared to pure vector search.
+### What gets cached
+
+| Cached Component | Benefit |
+|---|---|
+| RAG query responses | Instant repeat answers |
+| Repository summaries | Skip re-summarisation |
+| Embedding vectors | Avoid redundant model calls |
+| Agent outputs | Reuse for identical tasks |
+| Session history | Fast context restoration |
+
+**Benefits:** Reduced LLM cost · Lower latency · Faster repeated queries · Improved scalability
 
 ---
 
 ## 🤖 Agent Responsibilities
 
 ### Planner Agent
-
-| | |
-|---|---|
-| **Responsibilities** | Understand user intent, select agents & tools, create execution plan |
-| **Output** | Structured JSON execution plan |
+Understands user intent, selects agents and tools, and outputs a structured JSON execution plan.
 
 ```json
 {
   "steps": [
-    { "agent": "coder",    "tools": ["rag_search"] },
-    { "agent": "reviewer"                           },
-    { "agent": "executor"                           }
+    { "agent": "coder",    "tools": ["rag_search", "memory"] },
+    { "agent": "reviewer"                                     },
+    { "agent": "debugger"                                     },
+    { "agent": "executor"                                     }
   ]
 }
 ```
 
 ### Coder Agent
-
 | | |
 |---|---|
 | **Responsibilities** | Analyze repo context, explain implementation, generate code, understand architecture |
@@ -202,42 +203,50 @@ This significantly improves retrieval quality compared to pure vector search.
 | **Output** | Implementation findings, relevant files, code flow explanation |
 
 ### Reviewer Agent
-
 | | |
 |---|---|
-| **Responsibilities** | Code quality, architecture review, best practice analysis, maintainability assessment |
+| **Responsibilities** | Code quality, architecture review, best practice & maintainability analysis |
 | **Output** | Strengths, weaknesses, refactoring suggestions |
 
 ### Debugger Agent
-
 | | |
 |---|---|
 | **Responsibilities** | Bug detection, security analysis, edge case discovery, performance analysis |
 | **Output** | Potential issues, security concerns, optimization opportunities |
 
 ### Executor Agent
-
 | | |
 |---|---|
-| **Responsibilities** | Aggregate all findings, produce final response, generate implementation plan |
+| **Responsibilities** | Aggregate all agent findings, produce final response, generate implementation plan |
 | **Output** | Final recommendation, summary, actionable next steps |
 
 ---
 
-## 📦 Repository Indexing Pipeline
+## 📦 Code Indexing Pipeline
 
 ```
 Repository
-    ↓
-Directory Walker
-    ↓
-File Filter
-    ↓
-Chunking Engine
-    ↓
-Embedding Model (all-MiniLM-L6-v2)
-    ↓
-FAISS Index
+     ↓
+File Walker
+     ↓
+Extension Filter
+     ↓
+AST Chunking (Python) / Line-based (others)
+     ↓
+Metadata Injection
+     ↓
+Embeddings (all-MiniLM-L6-v2)
+     ↓
+FAISS Storage
+```
+
+### Metadata stored per chunk
+```json
+{
+  "source": "auth.py",
+  "path": "/app/services/auth.py",
+  "extension": ".py"
+}
 ```
 
 ### Python Files — AST-Based Chunking
@@ -245,15 +254,36 @@ FAISS Index
 Instead of arbitrary line splits, the system extracts **semantic units**:
 
 ```
-❌ Naive:   Lines 1–50 | Lines 51–100   (may cut mid-function)
-✅ DevPilot: class UserService | def create_user()   (complete logical units)
+❌ Naive:    Lines 1–50 | Lines 51–100      (may cut mid-function)
+✅ DevPilot: class UserService | def create_user()  (complete logical units)
 ```
 
-**Benefits:** better retrieval precision · better context quality · lower token usage
+**Benefits:** better retrieval precision · richer LLM context · lower token usage
 
 ### Other Files — Line-Based Chunking
+JavaScript, TypeScript, React, Markdown, JSON, YAML → **50 lines per chunk.**
 
-JavaScript, TypeScript, React, Markdown, JSON, YAML → **50 lines per chunk** for predictable sizes and efficient indexing.
+---
+
+## 🌊 Streaming Architecture
+
+```
+User
+  ↓
+FastAPI
+  ↓
+OpenRouter
+  ↓
+Gemini 2.0 Flash
+  ↓
+Token Stream
+  ↓
+Server-Sent Events (SSE)
+  ↓
+React UI  (real-time token-by-token updates)
+```
+
+**Advantages:** Real-time responses · Lower perceived latency · ChatGPT-like experience · Efficient transport layer
 
 ---
 
@@ -268,19 +298,14 @@ Both memory types are injected into every LLM prompt for full context continuity
 
 ---
 
-## 🌊 Streaming Architecture
+## 🎯 Engineering Challenges Solved
 
-```
-LLM Token Stream
-      ↓
-FastAPI StreamingResponse
-      ↓
-Browser Event Stream (SSE)
-      ↓
-Real-Time UI Updates
-```
-
-**Benefits:** faster perceived latency · better UX · ChatGPT-like interaction model
+| Challenge | Solution |
+|---|---|
+| Large repositories exceed LLM context limits | AST-based chunking + FAISS retrieval — only relevant chunks are sent |
+| Keyword search misses semantic meaning | BM25 + Vector Search Hybrid Retrieval |
+| Repeated queries increase latency and cost | Redis response caching |
+| Complex development tasks require specialization | Multi-agent architecture with dynamic planning |
 
 ---
 
@@ -292,6 +317,8 @@ Real-Time UI Updates
 | **LLM** | Gemini 2.0 Flash via OpenRouter | Language model backbone |
 | **Embeddings** | `sentence-transformers` (all-MiniLM-L6-v2) | Semantic code understanding |
 | **Vector Store** | FAISS (custom, no LangChain) | Blazing fast similarity search |
+| **Reranking** | Cross-Encoder | Final result reranking for precision |
+| **Caching** | Redis | Query + embedding vector caching |
 | **Agents** | CrewAI + custom LLM wrapper | Multi-agent orchestration |
 | **Memory** | Short-term (session) + Long-term (FAISS) | Persistent context awareness |
 | **Streaming** | Server-Sent Events (SSE) | Real-time response delivery |
@@ -326,7 +353,7 @@ devpilot-ai/
 │   │
 │   ├── 🔍 rag/
 │   │   ├── embedder.py             # sentence-transformers encoder
-│   │   ├── retriever.py            # Hybrid BM25 + FAISS retriever
+│   │   ├── retriever.py            # Hybrid BM25 + FAISS + Cross-Encoder retriever
 │   │   └── vector_store.py         # FAISS vector store
 │   │
 │   ├── 🌐 routes/
@@ -339,8 +366,9 @@ devpilot-ai/
 │   │
 │   ├── ⚙️ services/
 │   │   ├── llm_provider.py         # OpenRouter LLM client
-│   │   ├── agent_service.py        # ask_llm with memory injection
+│   │   ├── agent_service.py        # ask_llm with memory + Redis injection
 │   │   ├── rag_service.py          # RAG service
+│   │   ├── cache_service.py        # Redis caching layer
 │   │   └── crewai_llm.py           # Custom CrewAI LLM wrapper
 │   │
 │   ├── 🔧 tools/
@@ -401,21 +429,28 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` and add your API key:
+Edit `.env` and add your keys:
 
 ```env
 OPENROUTER_API_KEY=your_openrouter_api_key_here
+REDIS_URL=redis://localhost:6379
 ```
 
-> 🔑 Get your API key at [openrouter.ai](https://openrouter.ai)
+> 🔑 Get your OpenRouter API key at [openrouter.ai](https://openrouter.ai)
 
-### 5. Launch the backend
+### 5. Start Redis (optional but recommended)
+
+```bash
+docker run -d -p 6379:6379 redis:alpine
+```
+
+### 6. Launch the backend
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-### 6. Start the UI
+### 7. Start the UI
 
 ```bash
 # Option A — Streamlit (simpler)
@@ -448,8 +483,7 @@ cd ui/react-app && npm install && npm run dev
 
 DevPilot AI ships with a fully compatible MCP server for **Claude Desktop**, **Cursor**, and **VS Code**.
 
-Add the following to your Claude Desktop config at
-`~/Library/Application Support/Claude/claude_desktop_config.json`:
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -476,57 +510,24 @@ Add the following to your Claude Desktop config at
 
 ---
 
-## 📊 How It Works
+## 📈 Scalability Roadmap
 
-### 🔍 RAG Pipeline
+**Current architecture** is optimised for single-developer use and local deployment.
 
-```
-1. Walk & read all code files in the repo
-2. Python files → AST-based chunking (function/class boundaries)
-3. Other files → line-based chunking (50 lines/chunk)
-4. Each chunk embedded with all-MiniLM-L6-v2
-5. Vectors stored in FAISS with metadata
-6. At query time → hybrid BM25 + FAISS retrieval
-7. Reranker selects top-k chunks
-8. Context assembled and passed to Gemini 2.0 Flash
-```
+### Planned Enhancements
 
-### 🤖 Multi-Agent Flow
-
-```
-1. User sends a task
-2. Planner LLM creates a dynamic routing plan (JSON)
-3. Each step runs the appropriate agent with specified tools
-4. Agents access Tool Registry: RAG Search | Memory | Code Executor
-5. Structured AgentOutput is passed between agents
-6. Final output streamed back via SSE
-```
-
-### 🧠 Memory System
-
-| Type | Storage | Scope |
-|---|---|---|
-| **Short-term** | In-memory list of `MemoryItem` objects | Current session only |
-| **Long-term** | FAISS index (`memory_index`) | Persists across sessions |
-
-Both memory types are injected into every LLM prompt for full context continuity.
-
----
-
-## 📈 Scalability Considerations
-
-**Current architecture** is designed for single-developer use and local deployment.
-
-**Future scaling path:**
-
-| Component | Current | Scaled Solution |
-|---|---|---|
-| Metadata storage | In-memory / file | PostgreSQL |
-| Vector database | FAISS (local) | Qdrant (distributed) |
-| Caching | None | Redis |
-| Background tasks | Synchronous | Celery workers |
-| Deployment | Local / Docker | Kubernetes |
-| Auth | None | Multi-user authentication |
+| Enhancement | Purpose |
+|---|---|
+| Redis distributed caching | Multi-node cache for scaled deployments |
+| Background indexing jobs | Non-blocking repo ingestion |
+| Celery task queue | Async agent execution |
+| PostgreSQL metadata store | Structured, queryable chunk metadata |
+| Multi-user authentication | Team and enterprise support |
+| Repository versioning | Track codebase changes over time |
+| Cross-encoder reranking (upgrade) | Higher-precision retrieval |
+| Graph-based code retrieval | Dependency-aware search |
+| LangGraph workflow support | More complex agent topologies |
+| Kubernetes deployment | Production-scale orchestration |
 
 ---
 
@@ -537,7 +538,7 @@ fastapi              uvicorn              sentence-transformers
 faiss-cpu            openai               python-dotenv
 pydantic-settings    crewai               gitpython
 slowapi              mcp                  anthropic
-streamlit            requests
+streamlit            requests             redis
 ```
 
 ---
@@ -547,14 +548,16 @@ streamlit            requests
 | Concept | Implementation |
 |---|---|
 | **Retrieval-Augmented Generation** | FAISS + sentence-transformers for semantic code retrieval |
-| **Hybrid Search** | BM25 keyword search + vector similarity, merged and reranked |
-| **Multi-Agent AI Systems** | CrewAI-based Planner, Coder, Reviewer, Debugger, Executor agents |
+| **Hybrid Search** | BM25 + FAISS merged and reranked by Cross-Encoder |
+| **Multi-Agent AI Systems** | CrewAI-based Planner, Coder, Reviewer, Debugger, Executor |
 | **Agent Orchestration** | Dynamic JSON execution plans with per-step tool selection |
-| **Vector Databases** | Custom FAISS implementation — no LangChain dependency |
-| **Memory Architectures** | Dual short-term (session) and long-term (FAISS) memory layers |
-| **Server-Sent Events** | Real-time token-by-token streaming for all LLM responses |
-| **Model Context Protocol** | Full MCP server integration for Claude Desktop, Cursor, VS Code |
-| **Repository Intelligence** | AST-based Python chunking + line-based for other languages |
+| **Vector Databases** | Custom FAISS — no LangChain dependency |
+| **Cross-Encoder Reranking** | Second-pass precision ranking over merged retrieval results |
+| **Redis Caching** | Query responses, embeddings, and agent outputs cached for speed |
+| **Memory Architectures** | Dual short-term (session) and long-term (FAISS) memory |
+| **Server-Sent Events** | Real-time token streaming across the full agent pipeline |
+| **Model Context Protocol** | Full MCP server for Claude Desktop, Cursor, VS Code |
+| **AST-based Code Chunking** | Semantic Python splitting at function/class boundaries |
 | **FastAPI Production Design** | Async endpoints, rate limiting, structured agent outputs |
 
 ---
@@ -567,7 +570,7 @@ streamlit            requests
 
 ## 📄 License
 
-This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
+Licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
 
 ---
 

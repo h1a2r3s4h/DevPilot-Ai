@@ -3,10 +3,13 @@ import json
 import ast
 import shutil
 import tempfile
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from app.services.rag_service import hybrid_retriever as retriever
+from app.core.limiter import limiter
+
 from git import Repo
+
 
 router = APIRouter()
 
@@ -42,13 +45,26 @@ def read_file(path):
         print(f"Error reading {path}: {e}")
         return ""
 
-def chunk_code_lines(text: str, chunk_size: int = 30) -> list[str]:
+def chunk_code_lines(
+    text: str,
+    chunk_size: int = 30,
+    overlap: int = 10
+) -> list[str]:
+
     lines = text.split("\n")
     chunks = []
-    for i in range(0, len(lines), chunk_size):
-        chunk = "\n".join(lines[i:i + chunk_size])
+
+    step = chunk_size - overlap
+
+    for i in range(0, len(lines), step):
+
+        chunk = "\n".join(
+            lines[i:i + chunk_size]
+        )
+
         if chunk.strip():
             chunks.append(chunk)
+
     return chunks
 
 def chunk_by_ast(source: str, file_path: str) -> list[str]:
@@ -67,15 +83,15 @@ def chunk_by_ast(source: str, file_path: str) -> list[str]:
                     continue
 
                 chunk_with_context = (
-                    f"# File: {file_path}\n"
-                    f"# Type: {'class' if isinstance(node, ast.ClassDef) else 'function'}\n"
-                    f"# Name: {node.name}\n\n{chunk}"
+                    f"# FILE: {file_path}\n"
+                    f"# TYPE: {'class' if isinstance(node, ast.ClassDef) else 'function'}\n"
+                    f"# NAME: {node.name}\n\n{chunk}"
                 )
 
                 if len(chunk_lines) > 60:
-                    sub_chunks = chunk_code_lines(chunk, chunk_size=40)
+                    sub_chunks = chunk_code_lines(chunk, chunk_size=40, overlap=10)
                     for sc in sub_chunks:
-                        chunks.append(f"# File: {file_path}\n# Name: {node.name} (partial)\n\n{sc}")
+                        chunks.append(f"# FILE: {file_path}\n# NAME : {node.name} (partial)\n\n{sc}")
                 else:
                     chunks.append(chunk_with_context)
 
@@ -83,7 +99,7 @@ def chunk_by_ast(source: str, file_path: str) -> list[str]:
         pass
 
     if not chunks:
-        chunks = chunk_code_lines(source)
+        chunks = chunk_code_lines(source, chunk_size=30, overlap=10)
 
     return chunks
 
@@ -100,6 +116,7 @@ def load_repos() -> dict:
         return json.load(f)
 
 @router.post("/upload-repo")
+
 async def upload_repo(request: RepoRequest):
     path = request.path
 
@@ -135,7 +152,7 @@ async def upload_repo(request: RepoRequest):
                 if file.endswith(".py"):
                     chunks = chunk_by_ast(content, full_path)
                 else:
-                    raw_chunks = chunk_code_lines(content)
+                    raw_chunks = chunk_code_lines(content, chunk_size=30, overlap=10)
 
                     chunks = [
                         f"# File: {full_path}\n\n{chunk}"
@@ -154,7 +171,8 @@ SOURCE: {file}
 )
                         all_meta.append({
                             "source": file,
-                            "path": full_path
+                            "path": full_path,
+                            "extension":os.path.splitext(file)[1]
                         })
 
     print("TOTAL CHUNKS:", len(all_chunks))
@@ -177,30 +195,50 @@ def list_repos():
     return load_repos()
 
 @router.post("/repos/switch")
-async def switch_repo(request: RepoRequest):
+@limiter.limit("5/minute")
+async def switch_repo(
+    request: Request,
+    body: RepoRequest
+):
     for f in ["faiss_index.index", "faiss_index.pkl"]:
         if os.path.exists(f):
             os.remove(f)
-    return await upload_repo(request)
+
+    return await upload_repo(body)
 
 @router.post("/upload-github")
-async def upload_github(request: GithubRequest):
-    url = request.url.strip()
+@limiter.limit("5/minute")
+async def upload_github(
+    request: Request,
+    body: GithubRequest
+):
+    url = body.url.strip()
+
     repo_name = url.split("/")[-1].replace(".git", "")
     tmp_dir = tempfile.mkdtemp()
+
     try:
         print(f"🔗 Cloning {url}...")
+
         Repo.clone_from(url, tmp_dir)
+
         for f in ["faiss_index.index", "faiss_index.pkl"]:
             if os.path.exists(f):
                 os.remove(f)
-        result = await upload_repo(RepoRequest(path=tmp_dir))
+
+        result = await upload_repo(
+            RepoRequest(path=tmp_dir)
+        )
+
         save_repo(repo_name, url)
+
         return {
             "message": f"GitHub repo '{repo_name}' indexed",
             "chunks_added": result["chunks_added"]
         }
+
     except Exception as e:
         return {"error": str(e)}
+
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
