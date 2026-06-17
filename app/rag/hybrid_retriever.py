@@ -9,6 +9,10 @@ class HybridRetriever:
         self.bm25 = BM25Retriever()
         self.vector = Retriever()
 
+        if hasattr(self.vector.store, "texts") and self.vector.store.texts:
+            self.bm25.add_documents(self.vector.store.texts)
+            pass
+
     def add_documents(
         self,
         chunks,

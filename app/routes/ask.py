@@ -17,17 +17,17 @@ def ask_question(request: PromptRequest):
         request.prompt
     )
 
-    final_prompt = f"""
-    You are DevPilot AI, a developer assistant.
+    final_prompt = f"""You are DevPilot AI, an expert developer assistant.
+Use ONLY the context below to answer. Be concise and use proper markdown formatting.
+Do NOT say "Based on the provided repository context" — just answer directly.
+If the context doesn't contain the answer, say so honestly.
 
-    Use the context below to answer the question.
+Context:
+{context}
 
-    Context:
-    {context}
+Question: {request.prompt}
 
-    Question:
-    {request.prompt}
-    """
+Answer:"""
 
     result = ask_llm(
         "default_user",

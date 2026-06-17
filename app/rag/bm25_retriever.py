@@ -29,7 +29,7 @@ class BM25Retriever:
 
     def search(self, query, k=5):
         if self.bm25 is None:
-            print("BM25 index not initialized")
+            pass
             return []
 
         tokenized_query = tokenizer(query)
@@ -44,7 +44,7 @@ class BM25Retriever:
             reverse=True
         )
 
-        print("\n=== BM25 RESULTS ===")
-        print(ranked[:k])
+        pass
+        pass
 
         return ranked[:k]

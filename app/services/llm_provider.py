@@ -1,5 +1,7 @@
 import os
-print("KEY:", os.getenv("OPENROUTER_API_KEY"))  # should NOT be None
+from dotenv import load_dotenv
+load_dotenv()
+
 from openai import OpenAI
 from app.config.settings import settings
 
@@ -8,11 +10,22 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1"
 )
 
+SYSTEM_PROMPT = """You are DevPilot AI, an expert developer assistant.
+You are given relevant code context retrieved from a codebase.
+Rules:
+- Answer clearly and concisely using the context provided
+- Use proper markdown formatting (headers, code blocks, bullet points)
+- NEVER repeat file paths, metadata, or source annotations in your answer
+- NEVER say "Based on the provided repository context" — just answer directly
+- If the context doesn't contain the answer, say so honestly
+"""
+
 def get_llm_response(prompt: str) -> str:
     response = client.chat.completions.create(
-        model="google/gemini-2.0-flash-001", 
+        model="google/gemini-2.5-flash",
+        max_tokens=1024,
         messages=[
-            {"role": "system", "content": "You are a helpful AI developer assistant."},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ],
         temperature=0.3,
@@ -20,11 +33,11 @@ def get_llm_response(prompt: str) -> str:
     return response.choices[0].message.content
 
 def stream_llm_response(prompt: str):
-    """Generator that yields tokens one by one."""
     response = client.chat.completions.create(
-        model="google/gemini-2.0-flash-001",
+        model="google/gemini-2.5-flash",
+        max_tokens=1024,
         messages=[
-            {"role": "system", "content": "You are a helpful AI developer assistant."},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ],
         temperature=0.3,

@@ -17,36 +17,50 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@300;400;500;600&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-    --bg:        #060608;
-    --bg-1:      #0b0b0f;
-    --bg-2:      #111118;
-    --bg-3:      #18181f;
-    --border:    #1f1f2e;
-    --border-hi: #2e2e45;
-    --text:      #d4d4e0;
-    --text-dim:  #5a5a78;
-    --text-mute: #2a2a38;
-    --gold:      #e2c97e;
-    --gold-dim:  #8a7a4a;
-    --teal:      #5ee8c8;
-    --teal-dim:  #1a5e50;
-    --red:       #ff6b6b;
-    --purple:    #a78bfa;
+    --bg:         #04040a;
+    --bg-1:       #080810;
+    --bg-2:       #0e0e1a;
+    --bg-3:       #141424;
+    --border:     rgba(255,255,255,0.055);
+    --border-hi:  rgba(255,255,255,0.11);
+    --text:       #cdd0e0;
+    --text-dim:   #525570;
+    --text-mute:  #22222f;
+    --gold:       #f0d080;
+    --gold-dim:   #7a6530;
+    --teal:       #60eedd;
+    --red:        #ff7070;
+    --purple:     #b09fff;
+    --grid-color: rgba(255,255,255,0.022);
+    --radius:     10px;
+    --radius-lg:  14px;
 }
 
 html, body, [class*="css"] {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Fira Code', monospace;
     background: var(--bg);
     color: var(--text);
 }
 
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+}
+
 #MainMenu, footer, header { visibility: hidden; }
-.block-container { padding: 0 !important; max-width: 100% !important; }
+.block-container { padding: 0 !important; max-width: 100% !important; position: relative; z-index: 1; }
 
 /* ─── SIDEBAR ─────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
@@ -55,255 +69,286 @@ html, body, [class*="css"] {
     padding: 0 !important;
 }
 [data-testid="stSidebar"] > div:first-child {
-    padding: 32px 22px 24px !important;
+    padding: 30px 20px 24px !important;
 }
 [data-testid="stSidebar"] * {
-    font-family: 'JetBrains Mono', monospace !important;
+    font-family: 'Fira Code', monospace !important;
 }
 
-/* Logo block */
 .logo-wrap {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 6px;
+    gap: 11px;
+    margin-bottom: 4px;
 }
 .logo-hex {
-    width: 36px;
-    height: 36px;
-    background: linear-gradient(135deg, var(--gold) 0%, #b8943a 100%);
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(140deg, var(--gold) 0%, #c4882a 100%);
     clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.65rem;
-    color: var(--bg);
+    font-size: 0.62rem;
+    color: #1a1000;
     font-weight: 700;
-    letter-spacing: 0;
     flex-shrink: 0;
-    animation: pulse-hex 4s ease-in-out infinite;
+    animation: hex-pulse 5s ease-in-out infinite;
 }
-@keyframes pulse-hex {
-    0%,100% { box-shadow: 0 0 0 0 rgba(226,201,126,0); }
-    50%      { box-shadow: 0 0 18px 4px rgba(226,201,126,0.18); }
+@keyframes hex-pulse {
+    0%,100% { filter: drop-shadow(0 0 6px rgba(240,208,128,0.25)); }
+    50%      { filter: drop-shadow(0 0 18px rgba(240,208,128,0.5)); }
 }
 .logo-text {
-    font-family: 'Syne', sans-serif !important;
+    font-family: 'Outfit', sans-serif !important;
     font-weight: 800 !important;
-    font-size: 1.25rem !important;
-    color: #f4f4f8 !important;
-    letter-spacing: -0.03em !important;
+    font-size: 1.2rem !important;
+    color: #eeeef8 !important;
+    letter-spacing: -0.04em !important;
 }
 .logo-sub {
-    font-size: 0.58rem !important;
+    font-size: 0.56rem !important;
     color: var(--text-dim) !important;
-    letter-spacing: 0.14em !important;
+    letter-spacing: 0.16em !important;
     text-transform: uppercase !important;
-    margin-left: 48px;
-    margin-top: -2px;
-    margin-bottom: 20px;
+    margin-left: 45px;
+    margin-top: -3px;
+    margin-bottom: 18px;
+    opacity: 0.7;
 }
 
-/* Mode nav radio */
+[data-testid="stSidebar"] hr {
+    border: none !important;
+    border-top: 1px solid var(--border) !important;
+    margin: 18px 0 !important;
+}
+
 [data-testid="stSidebar"] .stRadio > label {
-    font-size: 0.6rem !important;
-    color: var(--text-mute) !important;
-    letter-spacing: 0.14em !important;
+    font-size: 0.56rem !important;
+    color: var(--text-dim) !important;
+    letter-spacing: 0.15em !important;
     text-transform: uppercase !important;
-    margin-bottom: 10px !important;
+    margin-bottom: 8px !important;
 }
 [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-    gap: 3px !important;
+    gap: 2px !important;
 }
 [data-testid="stSidebar"] .stRadio label[data-baseweb="radio"] {
     background: transparent !important;
-    padding: 10px 12px !important;
-    border-radius: 8px !important;
+    padding: 9px 12px !important;
+    border-radius: var(--radius) !important;
     border: 1px solid transparent !important;
-    transition: all 0.2s !important;
+    transition: all 0.18s ease !important;
+    cursor: pointer !important;
 }
 [data-testid="stSidebar"] .stRadio label[data-baseweb="radio"]:hover {
     background: var(--bg-2) !important;
-    border-color: var(--border) !important;
+    border-color: var(--border-hi) !important;
 }
 [data-testid="stSidebar"] .stRadio label[data-baseweb="radio"] p {
-    font-size: 0.72rem !important;
+    font-size: 0.7rem !important;
     color: var(--text-dim) !important;
+    letter-spacing: 0.02em !important;
 }
 [data-testid="stSidebar"] .stRadio label[data-baseweb="radio"][aria-checked="true"] {
-    background: var(--bg-3) !important;
-    border-color: var(--gold-dim) !important;
+    background: linear-gradient(135deg, rgba(240,208,128,0.08) 0%, rgba(14,14,26,0.9) 100%) !important;
+    border-color: rgba(240,208,128,0.25) !important;
+    box-shadow: 0 0 0 1px rgba(240,208,128,0.08), inset 0 1px 0 rgba(255,255,255,0.04) !important;
 }
 [data-testid="stSidebar"] .stRadio label[data-baseweb="radio"][aria-checked="true"] p {
     color: var(--gold) !important;
 }
-
-/* Hide default radio dot */
 [data-testid="stSidebar"] .stRadio span[data-baseweb="radio"] {
     display: none !important;
 }
 
-[data-testid="stSidebar"] hr {
-    border-color: var(--border) !important;
-    margin: 20px 0 !important;
-}
-
-/* Sidebar text inputs */
 [data-testid="stSidebar"] .stTextInput > div > div > input {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.7rem !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.68rem !important;
     background: var(--bg-2) !important;
     border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
+    border-radius: var(--radius) !important;
     color: var(--text) !important;
-    padding: 10px 12px !important;
-    transition: all 0.2s !important;
+    padding: 9px 12px !important;
+    transition: all 0.2s ease !important;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.4) !important;
 }
 [data-testid="stSidebar"] .stTextInput > div > div > input:focus {
-    border-color: var(--gold-dim) !important;
-    box-shadow: 0 0 0 3px rgba(226,201,126,0.07) !important;
+    border-color: rgba(240,208,128,0.35) !important;
+    box-shadow: 0 0 0 3px rgba(240,208,128,0.06), inset 0 1px 3px rgba(0,0,0,0.4) !important;
+    outline: none !important;
 }
 [data-testid="stSidebar"] .stTextInput label {
-    font-size: 0.6rem !important;
+    font-size: 0.57rem !important;
     color: var(--text-dim) !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.1em !important;
-    margin-bottom: 4px !important;
+    letter-spacing: 0.12em !important;
+    margin-bottom: 5px !important;
 }
 
-/* Sidebar buttons */
 [data-testid="stSidebar"] .stButton > button {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.68rem !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.66rem !important;
     font-weight: 500 !important;
     background: var(--bg-2) !important;
     color: var(--text-dim) !important;
     border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
-    padding: 8px 10px !important;
+    border-radius: var(--radius) !important;
+    padding: 7px 10px !important;
     width: 100% !important;
-    transition: all 0.2s !important;
-    letter-spacing: 0.05em !important;
+    transition: all 0.18s ease !important;
+    letter-spacing: 0.04em !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03) !important;
 }
 [data-testid="stSidebar"] .stButton > button:hover {
     background: var(--bg-3) !important;
     color: var(--gold) !important;
-    border-color: var(--gold-dim) !important;
-    box-shadow: 0 2px 12px rgba(226,201,126,0.1) !important;
+    border-color: rgba(240,208,128,0.3) !important;
+    box-shadow: 0 4px 16px rgba(240,208,128,0.1), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+    transform: translateY(-1px) !important;
+}
+[data-testid="stSidebar"] .stButton > button:active {
+    transform: translateY(0) !important;
 }
 
-/* Selectbox */
 [data-testid="stSidebar"] .stSelectbox > div > div {
     background: var(--bg-2) !important;
     border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
-    font-size: 0.7rem !important;
+    border-radius: var(--radius) !important;
+    font-size: 0.68rem !important;
     color: var(--text) !important;
 }
 
-/* Alerts */
 .stSuccess {
-    background: rgba(94,232,200,0.05) !important;
-    border: 1px solid var(--teal-dim) !important;
-    border-radius: 8px !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.7rem !important;
+    background: rgba(96,238,221,0.05) !important;
+    border: 1px solid rgba(96,238,221,0.2) !important;
+    border-radius: var(--radius) !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.68rem !important;
     color: var(--teal) !important;
 }
 .stError {
-    background: rgba(255,107,107,0.05) !important;
-    border: 1px solid #5a2020 !important;
-    border-radius: 8px !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.7rem !important;
+    background: rgba(255,112,112,0.05) !important;
+    border: 1px solid rgba(255,112,112,0.2) !important;
+    border-radius: var(--radius) !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.68rem !important;
 }
 .stInfo {
-    background: rgba(167,139,250,0.05) !important;
-    border: 1px solid #3a2e5a !important;
-    border-radius: 8px !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.7rem !important;
+    background: rgba(176,159,255,0.05) !important;
+    border: 1px solid rgba(176,159,255,0.2) !important;
+    border-radius: var(--radius) !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.68rem !important;
 }
 
-/* Endpoint code block */
-[data-testid="stSidebar"] .stCode {
-    font-size: 0.62rem !important;
-}
 [data-testid="stSidebar"] code {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.62rem !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.6rem !important;
     background: var(--bg) !important;
     border: 1px solid var(--border) !important;
-    border-radius: 6px !important;
-    line-height: 1.9 !important;
-    color: var(--text-dim) !important;
+    border-radius: 8px !important;
+    line-height: 2 !important;
+    color: #7a8aaa !important;
+    padding: 10px 14px !important;
+    display: block !important;
 }
 
 
 /* ─── MAIN HEADER ─────────────────────────────────────────────── */
 .main-header {
-    padding: 20px 36px 18px;
+    padding: 18px 36px 16px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
-    gap: 16px;
-    background: linear-gradient(180deg, #0b0b10 0%, var(--bg) 100%);
+    gap: 14px;
+    background: linear-gradient(180deg, rgba(8,8,16,0.98) 0%, rgba(4,4,10,0.95) 100%);
     position: sticky;
     top: 0;
     z-index: 100;
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+.main-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(240,208,128,0.15), transparent);
 }
 .header-badge {
-    font-size: 0.6rem;
-    letter-spacing: 0.14em;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.56rem;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--bg);
-    background: var(--gold);
-    padding: 3px 9px;
+    color: #1a1000;
+    background: linear-gradient(135deg, var(--gold), #c4882a);
+    padding: 3px 10px;
     border-radius: 100px;
     font-weight: 600;
+    box-shadow: 0 2px 10px rgba(240,208,128,0.2);
 }
 .header-mode {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     color: var(--text-dim);
     letter-spacing: 0.1em;
     text-transform: uppercase;
+}
+.header-title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    color: #eeeef8;
+    letter-spacing: -0.04em;
 }
 
 
 /* ─── EMPTY STATE ─────────────────────────────────────────────── */
 .empty-state {
-    padding: 80px 36px;
+    padding: 72px 40px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
+    position: relative;
 }
+.empty-state::before {
+    content: '';
+    position: absolute;
+    top: 40px;
+    left: 0;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(240,208,128,0.04) 0%, transparent 70%);
+    pointer-events: none;
+}
+.empty-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: rgba(255,255,255,0.06);
+    letter-spacing: -0.05em;
+    margin-bottom: 28px;
+    line-height: 1.1;
+}
+.empty-title span { color: rgba(240,208,128,0.5); }
 .empty-hint {
     display: flex;
     align-items: center;
     gap: 10px;
     color: var(--text-mute);
-    font-size: 0.72rem;
-    transition: color 0.2s;
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    padding: 2px 0;
 }
 .empty-hint .dot {
-    width: 5px;
-    height: 5px;
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
     background: var(--gold-dim);
     flex-shrink: 0;
-}
-.empty-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--text-mute);
-    letter-spacing: -0.04em;
-    margin-bottom: 24px;
-    line-height: 1.1;
-}
-.empty-title span {
-    color: var(--gold);
+    opacity: 0.6;
 }
 
 
@@ -312,88 +357,95 @@ html, body, [class*="css"] {
     background: transparent !important;
     border: none !important;
     border-radius: 0 !important;
-    padding: 20px 36px !important;
+    padding: 18px 36px !important;
     margin: 0 !important;
-    border-bottom: 1px solid var(--bg-2) !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    transition: background 0.15s !important;
+    border-bottom: 1px solid var(--border) !important;
+    font-family: 'Fira Code', monospace !important;
+    transition: background 0.15s ease !important;
+    animation: fadeIn 0.2s ease forwards !important;
 }
 [data-testid="stChatMessage"]:hover {
-    background: rgba(11,11,15,0.6) !important;
+    background: rgba(14,14,26,0.5) !important;
 }
 [data-testid="stChatMessage"] p {
-    font-size: 0.8rem !important;
-    line-height: 1.85 !important;
+    font-size: 0.79rem !important;
+    line-height: 1.9 !important;
     color: var(--text) !important;
     margin: 0 !important;
 }
-
-/* User bubble */
 [data-testid="stChatMessage"][data-testid*="user"] {
-    background: var(--bg-1) !important;
+    background: rgba(240,208,128,0.018) !important;
 }
 
-/* Avatar */
 [data-testid="stChatMessage"] [data-testid="chatAvatarIcon-user"],
 [data-testid="stChatMessage"] [data-testid="chatAvatarIcon-assistant"] {
     background: var(--bg-3) !important;
-    border: 1px solid var(--border) !important;
+    border: 1px solid var(--border-hi) !important;
     border-radius: 8px !important;
-    width: 30px !important;
-    height: 30px !important;
-    font-size: 0.6rem !important;
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.58rem !important;
     color: var(--gold) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
 }
 
-/* Code inside chat */
 [data-testid="stChatMessage"] code {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.73rem !important;
-    background: var(--bg-3) !important;
-    border: 1px solid var(--border) !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.72rem !important;
+    background: rgba(240,208,128,0.07) !important;
+    border: 1px solid rgba(240,208,128,0.12) !important;
     border-radius: 5px !important;
-    padding: 2px 6px !important;
+    padding: 2px 7px !important;
     color: var(--gold) !important;
 }
 [data-testid="stChatMessage"] pre {
     background: var(--bg-1) !important;
     border: 1px solid var(--border) !important;
-    border-left: 3px solid var(--gold-dim) !important;
-    border-radius: 8px !important;
-    padding: 16px 18px !important;
-    margin: 10px 0 !important;
+    border-left: 2px solid var(--gold-dim) !important;
+    border-radius: var(--radius) !important;
+    padding: 16px 20px !important;
+    margin: 12px 0 !important;
     overflow-x: auto !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
     position: relative;
+}
+[data-testid="stChatMessage"] pre::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(240,208,128,0.12), transparent);
 }
 [data-testid="stChatMessage"] pre code {
     background: transparent !important;
     border: none !important;
     padding: 0 !important;
-    color: #b0c0e0 !important;
-    font-size: 0.75rem !important;
+    color: #a8b8d0 !important;
+    font-size: 0.74rem !important;
     line-height: 1.75 !important;
 }
 
 
 /* ─── CHAT INPUT ──────────────────────────────────────────────── */
 [data-testid="stChatInput"] {
-    background: var(--bg) !important;
+    background: linear-gradient(0deg, rgba(4,4,10,0.98) 0%, rgba(4,4,10,0.9) 100%) !important;
     border-top: 1px solid var(--border) !important;
-    padding: 16px 36px 20px !important;
+    padding: 14px 36px 18px !important;
 }
 [data-testid="stChatInput"] > div {
     background: var(--bg-2) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 12px !important;
-    transition: all 0.2s !important;
+    border: 1px solid var(--border-hi) !important;
+    border-radius: var(--radius-lg) !important;
+    transition: all 0.22s ease !important;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03) !important;
 }
 [data-testid="stChatInput"] > div:focus-within {
-    border-color: var(--gold-dim) !important;
-    box-shadow: 0 0 0 3px rgba(226,201,126,0.07), 0 4px 24px rgba(0,0,0,0.3) !important;
+    border-color: rgba(240,208,128,0.3) !important;
+    box-shadow: 0 0 0 3px rgba(240,208,128,0.06), 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04) !important;
 }
 [data-testid="stChatInput"] textarea {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.78rem !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.76rem !important;
     color: var(--text) !important;
     background: transparent !important;
     line-height: 1.7 !important;
@@ -406,26 +458,28 @@ html, body, [class*="css"] {
     border: 1px solid var(--border-hi) !important;
     border-radius: 8px !important;
     color: var(--gold-dim) !important;
-    transition: all 0.2s !important;
+    transition: all 0.18s ease !important;
 }
 [data-testid="stChatInput"] button:hover {
-    background: var(--gold) !important;
-    color: var(--bg) !important;
+    background: linear-gradient(135deg, var(--gold), #c4882a) !important;
+    color: #1a1000 !important;
     border-color: var(--gold) !important;
-    box-shadow: 0 2px 16px rgba(226,201,126,0.25) !important;
+    box-shadow: 0 4px 18px rgba(240,208,128,0.3) !important;
+    transform: scale(1.05) !important;
 }
 
 
-/* ─── EXPANDER (agent) ────────────────────────────────────────── */
+/* ─── EXPANDER ────────────────────────────────────────────────── */
 .streamlit-expanderHeader {
     background: var(--bg-2) !important;
     border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.7rem !important;
+    border-radius: var(--radius) !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.68rem !important;
     color: var(--text-dim) !important;
     padding: 10px 14px !important;
-    transition: all 0.15s !important;
+    transition: all 0.15s ease !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03) !important;
 }
 .streamlit-expanderHeader:hover {
     background: var(--bg-3) !important;
@@ -436,38 +490,48 @@ html, body, [class*="css"] {
     background: var(--bg-1) !important;
     border: 1px solid var(--border) !important;
     border-top: none !important;
-    border-radius: 0 0 8px 8px !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.72rem !important;
+    border-radius: 0 0 var(--radius) var(--radius) !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.7rem !important;
     color: var(--text-dim) !important;
     padding: 12px 14px !important;
 }
 
-
-/* ─── SPINNER ─────────────────────────────────────────────────── */
+/* ─── MISC ────────────────────────────────────────────────────── */
 .stSpinner > div {
     border-top-color: var(--gold) !important;
+    border-right-color: transparent !important;
+    border-bottom-color: transparent !important;
+    border-left-color: transparent !important;
 }
-
-/* ─── CAPTION ─────────────────────────────────────────────────── */
 .stCaption {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.65rem !important;
-    color: var(--text-mute) !important;
+    font-family: 'Fira Code', monospace !important;
+    font-size: 0.63rem !important;
+    color: var(--text-dim) !important;
+    letter-spacing: 0.04em !important;
+}
+hr {
+    border: none !important;
+    border-top: 1px solid var(--border) !important;
 }
 
 /* ─── SCROLLBAR ───────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
 
-/* Typing cursor animation */
+/* ─── ANIMATIONS ──────────────────────────────────────────────── */
 @keyframes blink {
     0%,100% { opacity: 1; }
     50%      { opacity: 0; }
 }
 .cursor { animation: blink 1s step-end infinite; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -585,7 +649,7 @@ badge, subtitle = mode_meta.get(mode, ("", ""))
 st.markdown(
     f"""
     <div class="main-header">
-        <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.05rem;color:#f4f4f8;letter-spacing:-0.03em;">DevPilot</span>
+        <span class="header-title">DevPilot</span>
         <span class="header-badge">{badge}</span>
         <span class="header-mode">{subtitle}</span>
     </div>

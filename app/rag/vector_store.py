@@ -4,7 +4,11 @@ import os
 import pickle
 
 class VectorStore:
-    def __init__(self, dim=384, index_path="faiss_index"):
+    def __init__(self, dim=384, index_path=None):
+        import os as _os
+        if index_path is None:
+            _base = _os.path.dirname(_os.path.abspath(__file__))
+            index_path = _os.path.normpath(_os.path.join(_base, "..", "..", "faiss_index"))
         self.dim = dim
         self.index_path = index_path
         self.index_file = f"{index_path}.index"

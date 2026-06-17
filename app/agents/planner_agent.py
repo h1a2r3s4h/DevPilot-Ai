@@ -94,8 +94,8 @@ Example:
 
     except Exception as e:
 
-        print("Planner Error:", e)
-        print("Raw Output:", raw)
+        pass
+        pass
 
         return {
             "steps": [

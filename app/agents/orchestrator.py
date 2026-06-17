@@ -19,12 +19,12 @@ AGENT_MAP = {
 
 def run_multi_agent_system(user_query: str) -> dict:
 
-    print(f"\n🧠 Planning task: {user_query}")
+    pass
 
     plan = plan_task(user_query)
 
-    print("\n📋 Generated Plan:")
-    print(plan)
+    pass
+    pass
 
     steps = plan.get("steps", [])
 
@@ -37,17 +37,17 @@ def run_multi_agent_system(user_query: str) -> dict:
         tools = step.get("tools", [])
         instruction = step.get("instruction", user_query)
 
-        print(f"\n{'=' * 60}")
-        print(f"STEP {idx + 1}")
-        print(f"AGENT: {agent_name}")
-        print(f"TOOLS: {tools}")
-        print(f"INSTRUCTION: {instruction}")
-        print(f"{'=' * 60}")
+        pass
+        pass
+        pass
+        pass
+        pass
+        pass
 
         agent_fn = AGENT_MAP.get(agent_name)
 
         if not agent_fn:
-            print(f"⚠️ Unknown agent: {agent_name}")
+            pass
             continue
 
         try:
@@ -69,12 +69,12 @@ def run_multi_agent_system(user_query: str) -> dict:
 
             results.append(result)
 
-            print(f"✅ {agent_name} completed")
+            pass
 
         except Exception as e:
 
-            print(f"❌ {agent_name} failed")
-            print(str(e))
+            pass
+            pass
 
             results.append(
                 AgentOutput(

@@ -1,3 +1,4 @@
+from ast import arguments
 import asyncio
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -49,11 +50,14 @@ async def list_tools() -> list[Tool]:
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     if name == "search_codebase":
-        results = retriever.retrieve(arguments["query"])
-        text = "\n\n".join([
-            f"[{r['metadata'].get('source')}]\n{r['text']}"
-            for r in results
-        ])
+        # results = retriever.retrieve(arguments["query"])
+        # text = "\n\n".join([
+        #     f"[{r['metadata'].get('source')}]\n{r['text']}"
+        #     for r in results
+        # ])
+
+        from app.services.rag_service import query_rag
+        text = query_rag(arguments["query"])
         return [TextContent(type="text", text=text or "No results found.")]
 
     elif name == "ask_devpilot":

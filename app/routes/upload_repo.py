@@ -42,7 +42,6 @@ def read_file(path):
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
     except Exception as e:
-        print(f"Error reading {path}: {e}")
         return ""
 
 def chunk_code_lines(
@@ -116,15 +115,8 @@ def load_repos() -> dict:
         return json.load(f)
 
 @router.post("/upload-repo")
-
 async def upload_repo(request: RepoRequest):
     path = request.path
-
-    # print("=" * 50)
-    # print("UPLOAD REPO CALLED")
-    # print("PATH EXISTS:", os.path.exists(path))
-    # print("PATH IS DIR:", os.path.isdir(path))
-    # print("PATH:", path)
 
     repo_name = os.path.basename(path)
     save_repo(repo_name, path)
@@ -135,12 +127,7 @@ async def upload_repo(request: RepoRequest):
     for root, dirs, files in os.walk(path):
         dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
 
-        print("ROOT:", root)
-        print("FILES FOUND:", len(files))
-
         for file in files:
-            print("FILE:", file)
-
             if file.endswith(SUPPORTED_EXT):
                 full_path = os.path.join(root, file)
 
@@ -162,7 +149,7 @@ async def upload_repo(request: RepoRequest):
                 for chunk in chunks:
                     if chunk.strip():
                         all_chunks.append(
-    f"""
+f"""
 FILE: {full_path}
 SOURCE: {file}
 
@@ -172,10 +159,8 @@ SOURCE: {file}
                         all_meta.append({
                             "source": file,
                             "path": full_path,
-                            "extension":os.path.splitext(file)[1]
+                            "extension": os.path.splitext(file)[1]
                         })
-
-    print("TOTAL CHUNKS:", len(all_chunks))
 
     if not all_chunks:
         return {
@@ -218,8 +203,6 @@ async def upload_github(
     tmp_dir = tempfile.mkdtemp()
 
     try:
-        print(f"🔗 Cloning {url}...")
-
         Repo.clone_from(url, tmp_dir)
 
         for f in ["faiss_index.index", "faiss_index.pkl"]:

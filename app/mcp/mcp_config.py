@@ -1,9 +1,9 @@
 {
   "mcpServers": {
     "devpilot-ai": {
-      "command": "python",
+      "command": "/Users/harshitgangwar/Desktop/devpilot-ai/venv/bin/python",
       "args": ["-m", "app.mcp.server"],
-      "cwd": "/Users/harshitgangwar/devpilot-ai"
+      "cwd": "/Users/harshitgangwar/Desktop/devpilot-ai"
     }
   }
 }
