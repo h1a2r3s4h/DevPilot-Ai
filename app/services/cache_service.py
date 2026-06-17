@@ -1,4 +1,4 @@
-from mcp import os
+import os
 import redis
 import json
 
