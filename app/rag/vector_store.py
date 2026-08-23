@@ -59,3 +59,28 @@ class VectorStore:
             data = pickle.load(f)
         self.texts = data["texts"]
         self.metadata = data["metadata"]
+
+    def remove_by_metadata_path(self, path: str):
+        indices_to_keep = [i for i, meta in enumerate(self.metadata) if meta.get("path") != path]
+        if len(indices_to_keep) == len(self.metadata):
+            return
+
+        new_index = faiss.IndexFlatL2(self.dim)
+        new_texts = []
+        new_metadata = []
+
+        if indices_to_keep:
+            vectors = []
+            for i in indices_to_keep:
+                vec = self.index.reconstruct(i)
+                vectors.append(vec)
+            vectors_np = np.array(vectors).astype("float32")
+            new_index.add(vectors_np)
+
+            new_texts = [self.texts[i] for i in indices_to_keep]
+            new_metadata = [self.metadata[i] for i in indices_to_keep]
+
+        self.index = new_index
+        self.texts = new_texts
+        self.metadata = new_metadata
+        self.save()

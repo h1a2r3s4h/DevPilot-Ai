@@ -27,6 +27,16 @@ app.add_middleware(
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
+@app.on_event("startup")
+def startup_event():
+    from app.services.watcher_service import workspace_watcher
+    workspace_watcher.start()
+
+@app.on_event("shutdown")
+def shutdown_event():
+    from app.services.watcher_service import workspace_watcher
+    workspace_watcher.stop()
+
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request, exc):
     return JSONResponse(

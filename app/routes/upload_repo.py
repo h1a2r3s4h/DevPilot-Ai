@@ -102,6 +102,21 @@ def chunk_by_ast(source: str, file_path: str) -> list[str]:
 
     return chunks
 
+ACTIVE_REPO_FILE = "active_repo.json"
+
+def save_active_repo(name: str, path: str):
+    with open(ACTIVE_REPO_FILE, "w") as f:
+        json.dump({"name": name, "path": path}, f)
+
+def load_active_repo() -> dict:
+    if not os.path.exists(ACTIVE_REPO_FILE):
+        return {}
+    try:
+        with open(ACTIVE_REPO_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
 def save_repo(name: str, path: str):
     repos = load_repos()
     repos[name] = path
@@ -120,6 +135,7 @@ async def upload_repo(request: RepoRequest):
 
     repo_name = os.path.basename(path)
     save_repo(repo_name, path)
+    save_active_repo(repo_name, path)
 
     all_chunks = []
     all_meta = []

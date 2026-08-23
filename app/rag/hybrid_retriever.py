@@ -96,3 +96,11 @@ class HybridRetriever:
         )
 
         return final_results
+
+    def remove_file(self, file_path: str):
+        self.vector.store.remove_by_metadata_path(file_path)
+        if self.vector.store.texts:
+            self.bm25.add_documents(self.vector.store.texts)
+        else:
+            self.bm25.bm25 = None
+            self.bm25.documents = []

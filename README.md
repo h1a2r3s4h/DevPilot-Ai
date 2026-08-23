@@ -50,7 +50,8 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 | 🌳 | **Smart Chunking** | AST-based splitting at function/class boundaries |
 | 🔌 | **MCP Server** | Model Context Protocol integration for Claude Desktop & VS Code |
 | 🛡️ | **Rate Limiting** | 10 req/min per IP via SlowAPI |
-| 🎨 | **Dual UI** | Streamlit + React (Vite) dark premium interfaces |
+| 🎨 | **React UI** | Premium dark Cyber Cyan React (Vite) interface |
+| 🔄 | **Auto-Watcher** | Real-time background workspace file watcher & auto-indexer |
 
 ---
 
@@ -324,7 +325,7 @@ Both memory types are injected into every LLM prompt for full context continuity
 | **Streaming** | Server-Sent Events (SSE) | Real-time response delivery |
 | **Rate Limiting** | SlowAPI | Abuse prevention |
 | **MCP** | Anthropic MCP SDK | IDE/editor integration protocol |
-| **UI** | Streamlit + React (Vite) | Dual frontend options |
+| **UI** | React (Vite) | Premium Cyber Cyan workspace UI |
 | **Git** | GitPython | Auto-clone & repo management |
 
 ---
@@ -387,7 +388,6 @@ devpilot-ai/
 │   └── main.py                     # FastAPI app entry point
 │
 ├── 🎨 ui/
-│   ├── app.py                      # Streamlit UI
 │   └── (Vite React UI files directly in ui/)
 │
 ├── 🧪 tests/
@@ -537,7 +537,7 @@ fastapi              uvicorn              sentence-transformers
 faiss-cpu            openai               python-dotenv
 pydantic-settings    crewai               gitpython
 slowapi              mcp                  anthropic
-streamlit            requests             redis
+uvicorn              requests             redis
 ```
 
 ---
