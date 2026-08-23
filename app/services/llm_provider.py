@@ -1,4 +1,5 @@
 import os
+from langsmith import traceable
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -10,6 +11,10 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1"
 )
 
+
+
+
+
 SYSTEM_PROMPT = """You are DevPilot AI, an expert developer assistant.
 You are given relevant code context retrieved from a codebase.
 Rules:
@@ -19,10 +24,10 @@ Rules:
 - NEVER say "Based on the provided repository context" — just answer directly
 - If the context doesn't contain the answer, say so honestly
 """
-
+@traceable(name="LLM Generation")
 def get_llm_response(prompt: str) -> str:
     response = client.chat.completions.create(
-        model="google/gemini-2.5-flash",
+        model="openrouter/free",
         max_tokens=1024,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -34,7 +39,7 @@ def get_llm_response(prompt: str) -> str:
 
 def stream_llm_response(prompt: str):
     response = client.chat.completions.create(
-        model="google/gemini-2.5-flash",
+        model="openrouter/free",
         max_tokens=1024,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -47,3 +52,6 @@ def stream_llm_response(prompt: str):
         delta = chunk.choices[0].delta
         if delta and delta.content:
             yield delta.content
+
+
+

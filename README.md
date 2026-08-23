@@ -388,10 +388,11 @@ devpilot-ai/
 │
 ├── 🎨 ui/
 │   ├── app.py                      # Streamlit UI
-│   └── react-app/                  # React UI (Vite)
+│   └── (Vite React UI files directly in ui/)
 │
 ├── 🧪 tests/
-│   └── test_agents.py
+│   ├── test_agents.py
+│   └── test_llm.py
 │
 ├── .env                            # Environment variables
 ├── Dockerfile                      # Container config
@@ -456,8 +457,8 @@ uvicorn app.main:app --reload
 # Option A — Streamlit (simpler)
 streamlit run ui/app.py
 
-# Option B — React (production-grade)
-cd ui/react-app && npm install && npm run dev
+# Option B — React (production-grade, styled with Shadcn & Tailwind v4)
+cd ui && npm install && npm run dev
 ```
 
 ---

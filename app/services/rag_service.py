@@ -1,5 +1,8 @@
+from langsmith import traceable
+
 from app.rag.hybrid_retriever import HybridRetriever
 from app.rag.reranker import Reranker
+
 import re
 
 hybrid_retriever = HybridRetriever()
@@ -14,6 +17,7 @@ def clean_chunk(chunk: str) -> str:
     chunk = re.sub(r'\nSOURCE:.*?\n', '', chunk)
     return chunk.strip()
 
+@traceable(name="RAG Retrieval")
 def query_rag(query: str) -> str:
     docs = hybrid_retriever.search(query, k=20)
     texts = [d["text"] if isinstance(d, dict) else d for d in docs]
@@ -21,3 +25,4 @@ def query_rag(query: str) -> str:
     clean_docs = [clean_chunk(doc) for doc in texts]
     context = "\n\n---\n\n".join(clean_docs)
     return context
+

@@ -13,7 +13,9 @@ from app.routes.mcp_route import router as mcp_router
 from app.routes.upload_repo import router as repo_router
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.limiter import limiter
+from dotenv import load_dotenv
 
+load_dotenv()
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,

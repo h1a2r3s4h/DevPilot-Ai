@@ -51,7 +51,7 @@ User Query:
     }
 
     data = {
-        "model": "google/gemini-2.0-flash-001",
+        "model": "openrouter/free",
         "messages": [
             {"role": "user", "content": enhanced_prompt}
         ]
