@@ -454,10 +454,8 @@ uvicorn app.main:app --reload
 ### 7. Start the UI
 
 ```bash
-# Option A — Streamlit (simpler)
-streamlit run ui/app.py
 
-# Option B — React (production-grade, styled with Shadcn & Tailwind v4)
+React (production-grade, styled with Shadcn & Tailwind v4)
 cd ui && npm install && npm run dev
 ```
 
