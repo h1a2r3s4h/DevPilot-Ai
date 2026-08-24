@@ -19,6 +19,7 @@ def ask_question(request: PromptRequest):
 
     final_prompt = f"""You are DevPilot AI, an expert developer assistant.
 Use ONLY the context below to answer. Be concise and use proper markdown formatting.
+If the answer involves complex logic, flow, sequence of steps, or architectures, include a structured Mermaid flowchart (using a ```mermaid code block) to make the explanation more visual and structured.
 Do NOT say "Based on the provided repository context" — just answer directly.
 If the context doesn't contain the answer, say so honestly.
 

@@ -1,9 +1,34 @@
 from crewai import Agent
 from app.services.crewai_llm import CustomLLM
 from app.tools.tool_registry import tool_registry
-from app.services.llm_provider import get_llm_response
+from app.services.llm_provider import client
 import json
+import instructor
+from pydantic import BaseModel, Field
+from typing import List, Literal
 
+class PlanStep(BaseModel):
+    agent: Literal["coder", "reviewer", "debugger", "executor"] = Field(
+        ..., 
+        description="The agent assigned to this step: 'coder', 'reviewer', 'debugger', or 'executor'."
+    )
+    tools: List[Literal["rag_search", "code_executor", "terminal_command"]] = Field(
+        default_factory=list,
+        description="The tools available for this step. Options: 'rag_search', 'code_executor', 'terminal_command'."
+    )
+    instruction: str = Field(
+        ...,
+        description="Specific clear instruction for this agent to follow."
+    )
+
+class ExecutionPlan(BaseModel):
+    steps: List[PlanStep] = Field(
+        ..., 
+        description="The sequence of execution steps to accomplish the task."
+    )
+
+# Wrap the client with instructor for structured output enforcement
+instructor_client = instructor.from_openai(client)
 
 def create_planner_agent():
     return Agent(
@@ -16,7 +41,6 @@ def create_planner_agent():
 
 
 def plan_task(user_query: str) -> dict:
-
     tools_desc = tool_registry.describe()
 
     prompt = f"""
@@ -54,49 +78,22 @@ Routing Rules:
 
 User Request:
 "{user_query}"
-
-Return ONLY valid JSON.
-
-Example:
-
-{{
-  "steps": [
-    {{
-      "agent": "coder",
-      "tools": ["rag_search"],
-      "instruction": "Analyze repository and gather relevant information"
-    }},
-    {{
-      "agent": "executor",
-      "tools": [],
-      "instruction": "Generate final answer"
-    }}
-  ]
-}}
 """
 
-    raw = get_llm_response(prompt)
-
     try:
-        clean = (
-            raw.strip()
-            .replace("```json", "")
-            .replace("```", "")
-            .strip()
+        # Enforce structured output matching ExecutionPlan schema via OpenRouter
+        plan: ExecutionPlan = instructor_client.chat.completions.create(
+            model="openrouter/free",
+            response_model=ExecutionPlan,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2,
+            max_retries=2
         )
-
-        plan = json.loads(clean)
-
-        if not plan.get("steps"):
-            raise Exception("No steps found")
-
-        return plan
-
+        return plan.model_dump()
     except Exception as e:
-
-        pass
-        pass
-
+        print(f"\n[Planner Error] Instructor parsing failed, using fallback plan: {e}\n")
         return {
             "steps": [
                 {

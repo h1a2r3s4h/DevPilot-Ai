@@ -8,6 +8,8 @@ python-multipart==0.0.20
 
 # LLM
 openai==1.83.0
+instructor
+
 
 # RAG
 faiss-cpu

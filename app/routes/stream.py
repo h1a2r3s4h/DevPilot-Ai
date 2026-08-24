@@ -35,6 +35,7 @@ def ask_stream(request: Request, body: StreamRequest):
 
 Instructions:
 - Provide a structured, highly professional response. Use sections like "Analysis", "Implementation Details", or "Recommendations" where appropriate.
+- To make complex flows, logic, sequence of operations, and architectures highly structured and easy to understand, ALWAYS generate a styled Mermaid flowchart (enclosed in a ```mermaid code block) where applicable.
 - Answer directly without preambles (e.g., do NOT start with "Based on the repository context...").
 - Use clean, premium markdown with headings, lists, and formatted code blocks.
 - Reference exact file names and paths from the context to support your statements.

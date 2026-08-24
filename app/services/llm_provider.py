@@ -26,32 +26,40 @@ Rules:
 """
 @traceable(name="LLM Generation")
 def get_llm_response(prompt: str) -> str:
-    response = client.chat.completions.create(
-        model="openrouter/free",
-        max_tokens=1024,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.3,
-    )
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model="openrouter/free",
+            max_tokens=1024,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"\n[LLM Error] API request failed: {e}\n")
+        return None
 
 def stream_llm_response(prompt: str):
-    response = client.chat.completions.create(
-        model="openrouter/free",
-        max_tokens=1024,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.3,
-        stream=True,
-    )
-    for chunk in response:
-        delta = chunk.choices[0].delta
-        if delta and delta.content:
-            yield delta.content
+    try:
+        response = client.chat.completions.create(
+            model="openrouter/free",
+            max_tokens=1024,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            stream=True,
+        )
+        for chunk in response:
+            delta = chunk.choices[0].delta
+            if delta and delta.content:
+                yield delta.content
+    except Exception as e:
+        print(f"\n[LLM Stream Error] API stream failed: {e}\n")
+        yield f"\n❌ API Error: {e}\n"
 
 
 

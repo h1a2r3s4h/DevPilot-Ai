@@ -1,0 +1,31 @@
+# Version control
+.git
+.gitignore
+
+# OS specific files
+.DS_Store
+
+# Local virtual environments
+venv/
+.venv/
+env/
+
+# Frontend dependencies and builds
+ui/node_modules/
+ui/dist/
+ui/.oxlintrc.json
+
+# Local databases and indexes
+dump.rdb
+faiss_index.index
+faiss_index.pkl
+repo_registry.json
+active_repo.json
+
+# Cache and logs
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.oxlintrc.json

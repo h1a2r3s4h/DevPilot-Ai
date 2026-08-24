@@ -7,6 +7,7 @@ import type { AgentStep } from "../utils/api";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import mermaid from "mermaid";
 
 interface Message {
   role: "user" | "assistant";
@@ -17,6 +18,123 @@ interface Message {
 interface ChatWindowProps {
   mode: "ask" | "agent";
 }
+
+// Initialize mermaid once outside
+try {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "dark",
+    securityLevel: "loose",
+    themeVariables: {
+      background: "#09090b", // zinc-950
+      primaryColor: "#06b6d4", // cyan-500
+      primaryTextColor: "#f4f4f5", // zinc-100
+      lineColor: "#27272a", // zinc-800
+      nodeBorder: "#3f3f46", // zinc-700
+      mainBkg: "#18181b", // zinc-900
+      actorBkg: "#18181b",
+      actorBorder: "#3f3f46",
+      signalColor: "#f4f4f5",
+      signalLineColor: "#27272a",
+      labelBoxBorderColor: "#3f3f46",
+      labelBoxBkgColor: "#18181b",
+    }
+  });
+} catch (e) {
+  console.error("Mermaid initialization failed:", e);
+}
+
+// Mermaid Flowchart Rendering Component
+const MermaidBlock: React.FC<{ children: string }> = ({ children }) => {
+  const [svg, setSvg] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const elementId = useRef(`mermaid-${Math.random().toString(36).substring(2, 9)}`);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const renderChart = async () => {
+      if (!children.trim()) return;
+      try {
+        const cleanCode = children.trim();
+        const { svg: renderedSvg } = await mermaid.render(elementId.current, cleanCode);
+        if (isMounted) {
+          setSvg(renderedSvg);
+          setError(null);
+        }
+      } catch (err: any) {
+        // Clean up fallback ID if generated element got stuck in document
+        const element = document.getElementById(elementId.current);
+        if (element) {
+          element.remove();
+        }
+        if (isMounted) {
+          setError(err.message || String(err));
+        }
+      }
+    };
+
+    const timer = setTimeout(() => {
+      renderChart();
+    }, 150);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [children]);
+
+  if (error && !svg) {
+    return (
+      <div className="my-4 rounded-lg border border-zinc-800/80 overflow-hidden bg-zinc-950/60 p-4">
+        <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-2 font-mono uppercase tracking-wider font-semibold">
+          <span>Flowchart (Streaming / Error)</span>
+        </div>
+        <pre className="text-[11px] text-zinc-400 font-mono overflow-x-auto whitespace-pre-wrap leading-relaxed">
+          <code>{children}</code>
+        </pre>
+      </div>
+    );
+  }
+
+  if (!svg) {
+    return (
+      <div className="my-4 rounded-lg border border-zinc-850 overflow-hidden bg-zinc-950 p-6 flex flex-col items-center justify-center min-h-[120px] text-zinc-500 font-mono text-xs">
+        <div className="animate-pulse flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-ping" />
+          <span>Generating flowchart...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-5 rounded-xl border border-zinc-800/80 overflow-hidden bg-zinc-900/10 backdrop-blur-md shadow-lg transition-all hover:border-zinc-700/50">
+      <div className="flex items-center justify-between px-4 py-2 bg-zinc-900/60 border-b border-zinc-800/80 text-[10px] text-zinc-400 font-mono tracking-wider uppercase font-semibold">
+        <span>Visual Flowchart</span>
+      </div>
+      <style>{`
+        .mermaid-svg-container {
+          overflow-x: auto;
+          width: 100%;
+          background-color: rgba(9, 9, 11, 0.4);
+          padding: 1.5rem;
+          text-align: center;
+        }
+        .mermaid-svg-container svg {
+          background: transparent !important;
+          max-width: 100% !important;
+          height: auto !important;
+          display: inline-block;
+        }
+      `}</style>
+      <div 
+        className="select-none mermaid-svg-container"
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+    </div>
+  );
+};
 
 // Copy Code Helper Component
 const CodeBlock: React.FC<{ children: string; className?: string }> = ({ children, className }) => {
@@ -313,6 +431,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ mode }) => {
                             pre: ({ children }) => <div>{children}</div>,
                             code: ({ node, className, children, ...props }) => {
                               const match = /language-(\w+)/.exec(className || "");
+                              if (match && match[1] === "mermaid") {
+                                return (
+                                  <MermaidBlock>
+                                    {String(children).replace(/\n$/, "")}
+                                  </MermaidBlock>
+                                );
+                              }
                               return match ? (
                                 <CodeBlock className={className} {...props}>
                                   {String(children).replace(/\n$/, "")}

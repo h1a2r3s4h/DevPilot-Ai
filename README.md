@@ -40,8 +40,8 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 | | Feature | Description |
 |---|---|---|
 | 🔍 | **Hybrid RAG Pipeline** | BM25 + FAISS + Cross-Encoder reranking for precision retrieval |
-| 🤖 | **Multi-Agent System** | Planner → Coder → Reviewer → Debugger → Executor with dynamic routing |
-| ⚙️ | **Real Code Execution** | Agents run Python code in sandboxed subprocesses |
+| 🤖 | **Multi-Agent System** | Planner → Coder → Reviewer → Debugger → Executor (with Pydantic structure enforcement via `instructor`) |
+| ⚙️ | **Real Code Execution** | Ephemeral, network-isolated Docker container sandbox runs for Python code (with subprocess fallback) |
 | 🌊 | **Streaming Responses** | Token-by-token SSE streaming — just like ChatGPT |
 | 🧩 | **Dual Memory** | Short-term (session) + Long-term (FAISS) memory systems |
 | ⚡ | **Redis Caching** | Query response + embedding vector caching for reduced latency and LLM cost |
@@ -51,6 +51,7 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 | 🔌 | **MCP Server** | Model Context Protocol integration for Claude Desktop & VS Code |
 | 🛡️ | **Rate Limiting** | 10 req/min per IP via SlowAPI |
 | 🎨 | **React UI** | Premium dark Cyber Cyan React (Vite) interface |
+| 📊 | **Interactive Flowcharts** | Auto-generates & renders responsive visual Mermaid flowcharts for complex flows |
 | 🔄 | **Auto-Watcher** | Real-time background workspace file watcher & auto-indexer |
 
 ---
@@ -325,7 +326,7 @@ Both memory types are injected into every LLM prompt for full context continuity
 | **Streaming** | Server-Sent Events (SSE) | Real-time response delivery |
 | **Rate Limiting** | SlowAPI | Abuse prevention |
 | **MCP** | Anthropic MCP SDK | IDE/editor integration protocol |
-| **UI** | React (Vite) | Premium Cyber Cyan workspace UI |
+| **UI** | React (Vite) + Mermaid.js | Premium Cyber Cyan workspace UI with responsive flowchart support |
 | **Git** | GitPython | Auto-clone & repo management |
 
 ---
@@ -340,7 +341,7 @@ devpilot-ai/
 │   │   ├── orchestrator.py         # Dynamic task router
 │   │   ├── planner_agent.py        # Plans steps + tools → JSON execution plan
 │   │   ├── coder_agent.py          # Writes & explains code
-│   │   ├── executor_agent.py       # Runs code in sandboxed subprocess
+│   │   ├── executor_agent.py       # Runs code in isolated container sandbox
 │   │   ├── debugger_agent.py       # Bug detection & security analysis
 │   │   ├── reviewer_agent.py       # Code quality & architecture review
 │   │   ├── agent_output.py         # Structured output schema
@@ -376,7 +377,7 @@ devpilot-ai/
 │   │   ├── base_tool.py            # Tool interface
 │   │   ├── rag_search_tool.py      # RAG search tool
 │   │   ├── memory_tool.py          # Memory search tool
-│   │   ├── code_execution_tool.py  # Python executor
+│   │   ├── code_execution_tool.py  # Python executor (ephemeral Docker sandbox)
 │   │   └── tool_registry.py        # Tool registry
 │   │
 │   ├── 🔌 mcp/
@@ -404,27 +405,51 @@ devpilot-ai/
 
 ## 🚀 Quick Start
 
-### 1. Clone the repository
+### 🐳 The Easiest Way: Docker Compose
+
+To boot up the entire system (Redis server, Python backend, and Nginx-served React UI) in production mode with a single command, run:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/harshitgangwar/devpilot-ai
+cd devpilot-ai
+
+# 2. Configure your .env file
+cp .env.example .env  # Edit and add your OPENROUTER_API_KEY
+
+# 3. Spin up all services
+docker-compose up --build
+```
+
+The UI will be accessible at [http://localhost:5173](http://localhost:5173) and the API backend at [http://localhost:8000](http://localhost:8000).
+
+---
+
+### 💻 Manual Developer Setup (Local Mode)
+
+If you prefer to run the components manually in development mode, follow the steps below:
+
+#### 1. Clone the repository
 
 ```bash
 git clone https://github.com/harshitgangwar/devpilot-ai
 cd devpilot-ai
 ```
 
-### 2. Set up a virtual environment
+#### 2. Set up a virtual environment
 
 ```bash
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 ```
 
-### 3. Install dependencies
+#### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure environment variables
+#### 4. Configure environment variables
 
 ```bash
 cp .env.example .env
@@ -439,19 +464,19 @@ REDIS_URL=redis://localhost:6379
 
 > 🔑 Get your OpenRouter API key at [openrouter.ai](https://openrouter.ai)
 
-### 5. Start Redis (optional but recommended)
+#### 5. Start Redis (optional but recommended)
 
 ```bash
 docker run -d -p 6379:6379 redis:alpine
 ```
 
-### 6. Launch the backend
+#### 6. Launch the backend
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-### 7. Start the UI
+#### 7. Start the UI
 
 ```bash
 
