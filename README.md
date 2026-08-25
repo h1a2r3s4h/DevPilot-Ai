@@ -449,6 +449,8 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+> 💡 **Note:** The `requirements.txt` is configured to pull the CPU-only version of PyTorch (`torch+cpu`). This keeps the local installation fast and lightweight by avoiding gigabytes of heavy, redundant NVIDIA CUDA GPU packages that are not needed.
+
 #### 4. Configure environment variables
 
 ```bash
@@ -460,6 +462,11 @@ Edit `.env` and add your keys:
 ```env
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 REDIS_URL=redis://localhost:6379
+
+# Optional: LangSmith Observability/Tracing
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your_langsmith_api_key_here
+LANGSMITH_PROJECT=devpilot-ai
 ```
 
 > 🔑 Get your OpenRouter API key at [openrouter.ai](https://openrouter.ai)
