@@ -63,70 +63,151 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 
 ## 🏗️ System Architecture
 
-```
-                              React UI
-                                 │
-                           FastAPI API
-                    ┌────────────┼────────────┐
-                    │            │             │
-               RAG Engine   Agent System   MCP Server
-                    │            │
-              BM25 + FAISS   CrewAI Agents
-                    │            │
-              Redis Cache    Tool Registry
-                    └────────────┘
-                           │
-                       OpenRouter
-                           │
-                      Gemini Flash
+```mermaid
+graph TD
+    subgraph Client ["Client Layer"]
+        UI["React (Vite) + Tailwind Cyber UI"]
+        MCPClient["MCP Clients (Claude Desktop / Cursor / VS Code)"]
+    end
+
+    subgraph API ["FastAPI Core Gateway"]
+        FastAPI["FastAPI App (Async Endpoints + SSE Streaming)"]
+        RateLimiter["SlowAPI Rate Limiter"]
+    end
+
+    subgraph RAG ["Hybrid RAG Engine"]
+        BM25["BM25 Lexical Engine"]
+        FAISS["FAISS Vector Store"]
+        Reranker["Cross-Encoder Reranker"]
+        Chunker["AST Code Chunker"]
+    end
+
+    subgraph Agents ["Multi-Agent System (CrewAI)"]
+        Planner["Planner Agent"]
+        Coder["Coder Agent"]
+        Reviewer["Reviewer Agent"]
+        Debugger["Debugger Agent"]
+        Executor["Executor Agent"]
+    end
+
+    subgraph AsyncQueue ["Asynchronous Sandbox Queue"]
+        Redis["Redis (Broker & Result Cache)"]
+        CeleryWorker["Celery Worker Queue"]
+        DockerSandbox["Docker Container Sandbox (python:3.11-slim)"]
+    end
+
+    subgraph ExternalTools ["External Tools & Integrations"]
+        WebSearch["Live Web Search (DDGS / Tavily)"]
+        GitDiff["Git Unified Diff Engine (difflib)"]
+        OpenRouter["OpenRouter Gateway (LLMs)"]
+    end
+
+    UI -->|SSE Streaming / REST| FastAPI
+    MCPClient -->|JSON-RPC| FastAPI
+    FastAPI --> RateLimiter
+    FastAPI --> RAG
+    FastAPI --> Agents
+    
+    RAG --> Chunker
+    RAG --> BM25
+    RAG --> FAISS
+    BM25 & FAISS --> Reranker
+
+    Agents --> Planner
+    Planner --> Coder --> Reviewer --> Debugger --> Executor
+    
+    Agents --> WebSearch
+    Agents --> GitDiff
+    Agents --> Redis
+
+    Executor -->|Dispatch Async Task| CeleryWorker
+    CeleryWorker <--> Redis
+    CeleryWorker -->|Run Sandboxed Code| DockerSandbox
+
+    FastAPI --> OpenRouter
 ```
 
 ---
 
-## 🔄 End-to-End Request Flows
+## 🔄 Comprehensive Request Flows
 
-### Ask (RAG) Mode
+### 1. Ask (RAG) Mode Request Flow
 
-```
-User Question
-      ↓
-FastAPI Endpoint
-      ↓
-Redis Cache → Cache Hit? ──Yes──▶ Return Cached Answer
-      │ No
-      ▼
-Hybrid Retriever (BM25 + FAISS)
-      ↓
-Merge Results
-      ↓
-Cross-Encoder Reranker
-      ↓
-Top-K Context
-      ↓
-Gemini 2.0 Flash (via OpenRouter)
-      ↓
-Store in Redis
-      ↓
-Streaming Response (SSE) → React UI
-```
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as React UI
+    participant API as FastAPI Gateway
+    participant Cache as Redis Cache
+    participant RAG as Hybrid RAG (BM25 + FAISS)
+    participant Rerank as Cross-Encoder Reranker
+    participant LLM as LLM (OpenRouter)
 
-### Agent Mode
-
-```
-User Task
-     ↓
-Planner Agent  →  Creates JSON Execution Plan
-     ↓
-┌────┬────────┬──────────┬──────────┐
-│    │        │          │          │
-Coder  Reviewer  Debugger  Executor
-     ↓
-Structured Outputs  (previous_output = result.output)
-     ↓
-Final Response (streamed via SSE)
+    User->>UI: Ask question about codebase
+    UI->>API: POST /api/ask (SSE Stream)
+    API->>Cache: Check Query Cache
+    alt Cache Hit
+        Cache-->>API: Return Cached Response
+        API-->>UI: Stream Cached Output
+    else Cache Miss
+        API->>RAG: Hybrid Search (BM25 Keyword + FAISS Vector)
+        RAG-->>Rerank: Top-N Matched Chunks
+        Rerank-->>API: Top-K Reranked Context
+        API->>LLM: Prompt + Code Context
+        LLM-->>API: Token Stream
+        API->>Cache: Save to Redis Cache
+        API-->>UI: Token-by-Token SSE Stream
+    end
 ```
 
-> Each agent receives the previous agent's structured output as context — no information is lost between steps.
+### 2. Multi-Agent & Asynchronous Sandbox Execution Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as React UI
+    participant API as FastAPI Gateway
+    participant Orchestrator as Agent Orchestrator
+    participant Celery as Celery Queue
+    participant Redis as Redis Broker
+    participant Docker as Docker Sandbox Container
+
+    User->>UI: Submit coding objective
+    UI->>API: POST /api/agent/run
+    API->>Orchestrator: Plan & Orchestrate Tasks
+    Orchestrator->>Orchestrator: Planner → Coder → Reviewer → Debugger
+    Orchestrator->>Celery: Dispatch code_executor task
+    Celery->>Redis: Enqueue Execution Task
+    Redis-->>Celery: Worker Picks Task
+    Celery->>Docker: Execute Code inside Isolated Sandbox
+    Docker-->>Celery: Return Stdout / Stderr / ReturnCode
+    Celery-->>Orchestrator: Task Success
+    Orchestrator-->>UI: Stream Step Accordions & Final Summary
+```
+
+### 3. Git Code Diff Preview & One-Click Workspace Apply Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as React UI
+    participant API as FastAPI Gateway
+    participant DiffEngine as Git Diff Engine
+    participant Workspace as Local Workspace
+
+    User->>UI: Click "Preview Diff" on AI Code Block
+    UI->>API: POST /api/diff/preview (target_file, proposed_code)
+    API->>DiffEngine: Compare existing workspace file vs proposed code
+    DiffEngine-->>API: Generate Unified Git Patch (+/- lines)
+    API-->>UI: Render Diff Preview Modal
+    User->>UI: Click "Apply to Workspace File"
+    UI->>API: POST /api/diff/apply (target_file, proposed_code)
+    API->>Workspace: Write file to workspace & trigger auto-reindex
+    API-->>UI: Return Success Toast
+```
 
 ---
 
