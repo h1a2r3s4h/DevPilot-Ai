@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { previewDiff, applyDiff, DiffPreviewResponse } from "../utils/api";
+import { previewDiff, applyDiff } from "../utils/api";
+import type { DiffPreviewResponse } from "../utils/api";
 import { Check, X, FileCode, Play, AlertCircle, RefreshCw } from "lucide-react";
 
 interface DiffPreviewModalProps {
@@ -30,7 +31,7 @@ export const DiffPreviewModal: React.FC<DiffPreviewModalProps> = ({
   }, [isOpen, initialFilePath, proposedCode]);
 
   const handlePreview = async (path: string) => {
-    if (!path.strip && !path.trim()) return;
+    if (!path.trim()) return;
     setLoading(true);
     setStatusMessage(null);
     try {
@@ -138,7 +139,7 @@ export const DiffPreviewModal: React.FC<DiffPreviewModalProps> = ({
                       style = "bg-emerald-950/60 text-emerald-300 font-medium px-1";
                     } else if (line.startsWith("-") && !line.startsWith("---")) {
                       style = "bg-red-950/60 text-red-300 font-medium px-1";
-                    } else if (line.startswith("@@")) {
+                    } else if (line.startsWith("@@")) {
                       style = "text-cyan-400 font-semibold bg-slate-900/80 px-1";
                     }
                     return (

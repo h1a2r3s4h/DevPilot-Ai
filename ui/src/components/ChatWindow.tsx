@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, User, Cpu, Check, Copy, Loader2, Sparkles } from "lucide-react";
+import { Send, User, Cpu, Check, Copy, Loader2, Sparkles, FileCode } from "lucide-react";
 import { streamAsk, streamAgentRun } from "../utils/api";
 import type { AgentStep } from "../utils/api";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { DiffPreviewModal } from "./DiffPreviewModal";
 import mermaid from "mermaid";
 
 interface Message {
