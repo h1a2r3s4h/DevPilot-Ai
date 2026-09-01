@@ -21,6 +21,7 @@
 [![CrewAI](https://img.shields.io/badge/CrewAI-Multi_Agent-orange?style=for-the-badge)](https://crewai.com)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org)
 [![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
+[![Celery](https://img.shields.io/badge/Celery-Async_Queue-37B24D?style=for-the-badge&logo=celery&logoColor=white)](https://docs.celeryq.dev)
 [![MIT License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 </div>
@@ -41,6 +42,10 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 |---|---|---|
 | 🔍 | **Hybrid RAG Pipeline** | BM25 + FAISS + Cross-Encoder reranking for precision retrieval |
 | 🤖 | **Multi-Agent System** | Planner → Coder → Reviewer → Debugger → Executor (with Pydantic structure enforcement via `instructor`) |
+| 🌐 | **Live Web Search** | Real-time external documentation lookup (PyPI, MDN, GitHub) via `ddgs` & Tavily fallback |
+| 🎨 | **Git Diff & Apply** | Visual unified git diff preview modal with one-click direct workspace file editing |
+| ⚡ | **Async Task Queue** | **Celery + Redis** task queue for non-blocking asynchronous Docker sandbox code execution |
+| 📈 | **RAG Eval Suite** | Automated benchmarking (`tests/eval_rag.py`) measuring **Hit Rate@K**, **MRR**, and **Context Precision** |
 | ⚙️ | **Real Code Execution** | Ephemeral, network-isolated Docker container sandbox runs for Python code (with subprocess fallback) |
 | 🌊 | **Streaming Responses** | Token-by-token SSE streaming — just like ChatGPT |
 | 🧩 | **Dual Memory** | Short-term (session) + Long-term (FAISS) memory systems |
@@ -50,7 +55,7 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 | 🌳 | **Smart Chunking** | AST-based splitting at function/class boundaries |
 | 🔌 | **MCP Server** | Model Context Protocol integration for Claude Desktop & VS Code |
 | 🛡️ | **Rate Limiting** | 10 req/min per IP via SlowAPI |
-| 🎨 | **React UI** | Premium dark Cyber Cyan React (Vite) interface |
+| 🎨 | **React UI** | Premium dark Cyber Cyan React (Vite) interface with diff modal & copy tools |
 | 📊 | **Interactive Flowcharts** | Auto-generates & renders responsive visual Mermaid flowcharts for complex flows |
 | 🔄 | **Auto-Watcher** | Real-time background workspace file watcher & auto-indexer |
 
@@ -545,20 +550,45 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 **Current architecture** is optimised for single-developer use and local deployment.
 
-### Planned Enhancements
+---
 
-| Enhancement | Purpose |
-|---|---|
-| Redis distributed caching | Multi-node cache for scaled deployments |
-| Background indexing jobs | Non-blocking repo ingestion |
-| Celery task queue | Async agent execution |
-| PostgreSQL metadata store | Structured, queryable chunk metadata |
-| Multi-user authentication | Team and enterprise support |
-| Repository versioning | Track codebase changes over time |
-| Cross-encoder reranking (upgrade) | Higher-precision retrieval |
-| Graph-based code retrieval | Dependency-aware search |
-| LangGraph workflow support | More complex agent topologies |
-| Kubernetes deployment | Production-scale orchestration |
+## ⚡ Asynchronous Sandboxing Queue (Celery + Redis)
+
+DevPilot AI incorporates a non-blocking asynchronous task execution pipeline powered by **Celery** and **Redis** to execute code inside Docker sandboxes concurrently:
+
+```
+FastAPI Server (POST /api/execute/async)
+       │
+       ▼
+ Redis Message Queue (redis://redis:6379/0)
+       │
+       ▼
+ Celery Worker (devpilot-celery-worker) ──▶ Isolated Docker Sandbox (python:3.11-slim)
+```
+
+- **Async Endpoints**: `POST /api/execute/async` (enqueues task instantly, returns `task_id`) & `GET /api/execute/status/{task_id}` (polls status and output).
+- **Concurrency**: Worker processes handle multiple code execution requests in parallel without blocking main FastAPI HTTP threads.
+
+---
+
+## 📈 RAG Evaluation Benchmark Suite
+
+DevPilot AI includes an automated quantitative RAG evaluation engine ([tests/eval_rag.py](file:///Users/harshitgangwar/Desktop/2.WEBDEV/devpilot-ai/tests/eval_rag.py)) that benchmarks retrieval performance across **Hit Rate @ K**, **MRR (Mean Reciprocal Rank)**, and **Context Precision**:
+
+### Benchmark Command
+```bash
+python3 tests/eval_rag.py
+```
+
+### Retrieval Metric Results
+```
+Retrieval Pipeline             | MRR      | Hit@1    | Hit@3    | Hit@5    | Latency 
+---------------------------------------------------------------------------
+BM25 (Keyword)                 | 0.0312  |   0.0%  |   0.0%  |  12.5%  |   18.0ms
+FAISS (Vector)                 | 0.3750  |  37.5%  |  37.5%  |  37.5%  |  419.9ms
+Hybrid RAG (BM25+FAISS+Rerank) | 0.1250  |  12.5%  |  12.5%  |  12.5%  |  573.5ms
+---------------------------------------------------------------------------
+```
 
 ---
 
@@ -568,8 +598,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 fastapi              uvicorn              sentence-transformers
 faiss-cpu            openai               python-dotenv
 pydantic-settings    crewai               gitpython
-slowapi              mcp                  anthropic
-uvicorn              requests             redis
+slowapi              mcp                  celery
+redis                requests             anthropic
 ```
 
 ---
@@ -580,6 +610,10 @@ uvicorn              requests             redis
 |---|---|
 | **Retrieval-Augmented Generation** | FAISS + sentence-transformers for semantic code retrieval |
 | **Hybrid Search** | BM25 + FAISS merged and reranked by Cross-Encoder |
+| **Live External Web Search** | Real-time web documentation search (`ddgs` + Tavily fallback) |
+| **Git Code Diff & Apply** | Unified git diff viewer with one-click direct workspace file editing |
+| **RAG Evaluation Suite** | Automated benchmarking (`Hit@K`, `MRR`) via `tests/eval_rag.py` |
+| **Asynchronous Sandboxing** | Celery + Redis task queue for non-blocking Docker execution |
 | **Multi-Agent AI Systems** | CrewAI-based Planner, Coder, Reviewer, Debugger, Executor |
 | **Agent Orchestration** | Dynamic JSON execution plans with per-step tool selection |
 | **Vector Databases** | Custom FAISS — no LangChain dependency |

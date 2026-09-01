@@ -1,9 +1,7 @@
-from ast import arguments
 import asyncio
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
-from app.services.rag_service import hybrid_retriever as retriever
 from app.services.llm_provider import get_llm_response
 from app.agents.orchestrator import run_multi_agent_system
 
@@ -45,28 +43,38 @@ async def list_tools() -> list[Tool]:
                 "required": ["task"]
             }
         ),
+        Tool(
+            name="web_search",
+            description="Search the live web for external Python, framework, or library documentation",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"}
+                },
+                "required": ["query"]
+            }
+        ),
     ]
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     if name == "search_codebase":
-        # results = retriever.retrieve(arguments["query"])
-        # text = "\n\n".join([
-        #     f"[{r['metadata'].get('source')}]\n{r['text']}"
-        #     for r in results
-        # ])
-
         from app.services.rag_service import query_rag
-        text = query_rag(arguments["query"])
+        text = query_rag(arguments.get("query", ""))
         return [TextContent(type="text", text=text or "No results found.")]
 
     elif name == "ask_devpilot":
-        response = get_llm_response(arguments["question"])
-        return [TextContent(type="text", text=response)]
+        response = get_llm_response(arguments.get("question", ""))
+        return [TextContent(type="text", text=response or "Failed to generate LLM response.")]
 
     elif name == "run_agent":
-        result = run_multi_agent_system(arguments["task"])
-        return [TextContent(type="text", text=result["final_output"])]
+        result = run_multi_agent_system(arguments.get("task", ""))
+        return [TextContent(type="text", text=result.get("final_output", "No output from agents."))]
+
+    elif name == "web_search":
+        from app.tools.web_search_tool import WebSearchTool
+        output = WebSearchTool().run(arguments.get("query", ""))
+        return [TextContent(type="text", text=output)]
 
     return [TextContent(type="text", text="Unknown tool")]
 

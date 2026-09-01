@@ -1,0 +1,50 @@
+[
+  {
+    "id": "q1",
+    "query": "How is the workspace file watcher implemented?",
+    "expected_file": "watcher_service.py",
+    "expected_keywords": ["workspace_watcher", "Observer", "FileSystemEventHandler", "start"]
+  },
+  {
+    "id": "q2",
+    "query": "What vector index and embedding model does DevPilot AI use?",
+    "expected_file": "vector_store.py",
+    "expected_keywords": ["faiss", "IndexFlatL2", "SentenceTransformer", "all-MiniLM-L6-v2"]
+  },
+  {
+    "id": "q3",
+    "query": "How does the Redis caching layer store query responses?",
+    "expected_file": "cache_service.py",
+    "expected_keywords": ["get_cache", "set_cache", "redis", "ttl"]
+  },
+  {
+    "id": "q4",
+    "query": "Where is the isolated Docker sandbox code execution handled?",
+    "expected_file": "execution_tasks.py",
+    "expected_keywords": ["execute_code_task", "docker", "run", "sandboxed_docker"]
+  },
+  {
+    "id": "q5",
+    "query": "How does the BM25 retrieval keyword search work?",
+    "expected_file": "bm25_retriever.py",
+    "expected_keywords": ["BM25Okapi", "BM25Retriever", "add_documents", "search"]
+  },
+  {
+    "id": "q6",
+    "query": "How are rate limits enforced in FastAPI endpoints?",
+    "expected_file": "limiter.py",
+    "expected_keywords": ["Limiter", "get_remote_address", "SlowAPIMiddleware"]
+  },
+  {
+    "id": "q7",
+    "query": "How is the Model Context Protocol (MCP) server defined?",
+    "expected_file": "server.py",
+    "expected_keywords": ["Server", "list_tools", "call_tool", "stdio_server"]
+  },
+  {
+    "id": "q8",
+    "query": "Where is AST code splitting implemented for Python files?",
+    "expected_file": "ast_chunker.py",
+    "expected_keywords": ["ast", "parse", "FunctionDef", "ClassDef"]
+  }
+]

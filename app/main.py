@@ -11,6 +11,8 @@ from app.routes.stream import router as stream_router
 from app.routes.agent_run import router as agent_run_router
 from app.routes.mcp_route import router as mcp_router
 from app.routes.upload_repo import router as repo_router
+from app.routes.execution_route import router as execution_router
+from app.routes.diff_route import router as diff_router
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.limiter import limiter
 from dotenv import load_dotenv
@@ -51,3 +53,5 @@ app.include_router(stream_router)
 app.include_router(agent_run_router)
 app.include_router(mcp_router)
 app.include_router(repo_router)
+app.include_router(execution_router)
+app.include_router(diff_router)

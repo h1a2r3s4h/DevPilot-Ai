@@ -136,8 +136,12 @@ const MermaidBlock: React.FC<{ children: string }> = ({ children }) => {
   );
 };
 
-// Copy Code Helper Component
-const CodeBlock: React.FC<{ children: string; className?: string }> = ({ children, className }) => {
+// Copy Code & Diff Preview Helper Component
+const CodeBlock: React.FC<{ children: string; className?: string; onDiffPreview?: (code: string) => void }> = ({
+  children,
+  className,
+  onDiffPreview,
+}) => {
   const [copied, setCopied] = useState(false);
   const lang = className ? className.replace("language-", "") : "code";
 
@@ -151,23 +155,35 @@ const CodeBlock: React.FC<{ children: string; className?: string }> = ({ childre
     <div className="relative my-4 group rounded-lg overflow-hidden border border-zinc-800">
       <div className="flex items-center justify-between px-4 py-1.5 bg-zinc-900/90 border-b border-zinc-800 text-[10px] text-zinc-500 font-mono">
         <span className="uppercase tracking-wider font-semibold">{lang}</span>
-        <button
-          onClick={handleCopy}
-          className="hover:text-zinc-300 transition-colors flex items-center gap-1 py-1 px-1.5 rounded"
-          title="Copy Code"
-        >
-          {copied ? (
-            <>
-              <Check size={11} className="text-emerald-400 animate-in fade-in zoom-in-50" />
-              <span className="text-emerald-400 font-semibold">Copied!</span>
-            </>
-          ) : (
-            <>
-              <Copy size={11} />
-              <span>Copy</span>
-            </>
+        <div className="flex items-center gap-2">
+          {onDiffPreview && (
+            <button
+              onClick={() => onDiffPreview(children)}
+              className="hover:text-cyan-400 text-zinc-400 transition-colors flex items-center gap-1 py-1 px-1.5 rounded"
+              title="Preview Git Diff & Apply to File"
+            >
+              <FileCode size={11} className="text-cyan-400" />
+              <span>Preview Diff</span>
+            </button>
           )}
-        </button>
+          <button
+            onClick={handleCopy}
+            className="hover:text-zinc-300 transition-colors flex items-center gap-1 py-1 px-1.5 rounded"
+            title="Copy Code"
+          >
+            {copied ? (
+              <>
+                <Check size={11} className="text-emerald-400 animate-in fade-in zoom-in-50" />
+                <span className="text-emerald-400 font-semibold">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy size={11} />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
       <pre className="p-4 bg-zinc-950 overflow-x-auto text-[12px] font-mono text-zinc-300 leading-relaxed">
         <code>{children}</code>
@@ -181,9 +197,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ mode }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentAgentSteps, setCurrentAgentSteps] = useState<AgentStep[]>([]);
+  const [isDiffModalOpen, setIsDiffModalOpen] = useState(false);
+  const [diffCode, setDiffCode] = useState("");
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleOpenDiffPreview = (code: string) => {
+    setDiffCode(code);
+    setIsDiffModalOpen(true);
+  };
 
   // Auto-scrolling
   const scrollToBottom = () => {
@@ -439,7 +462,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ mode }) => {
                                 );
                               }
                               return match ? (
-                                <CodeBlock className={className} {...props}>
+                                <CodeBlock className={className} onDiffPreview={handleOpenDiffPreview} {...props}>
                                   {String(children).replace(/\n$/, "")}
                                 </CodeBlock>
                               ) : (
@@ -498,6 +521,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ mode }) => {
           Powered by OpenRouter LLM Gateway
         </div>
       </div>
+
+      {/* Diff Preview & Workspace File Apply Modal */}
+      <DiffPreviewModal
+        isOpen={isDiffModalOpen}
+        onClose={() => setIsDiffModalOpen(false)}
+        proposedCode={diffCode}
+      />
     </div>
   );
 };

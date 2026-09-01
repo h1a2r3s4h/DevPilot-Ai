@@ -30,6 +30,23 @@ services:
       - redis
     restart: always
 
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: devpilot-celery-worker
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - redis
+      - backend
+    restart: always
+
   frontend:
     build:
       context: ./ui

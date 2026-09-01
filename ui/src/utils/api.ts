@@ -169,3 +169,37 @@ export async function streamAgentRun(
     onError(error);
   }
 }
+
+export interface DiffPreviewResponse {
+  file_path: string;
+  filename: string;
+  exists: boolean;
+  diff: string;
+  has_changes: boolean;
+}
+
+export interface ApplyDiffResponse {
+  success: boolean;
+  message: string;
+  file_path: string;
+}
+
+export async function previewDiff(filePath: string, proposedContent: string): Promise<DiffPreviewResponse> {
+  const res = await fetch(`${API_BASE}/api/diff/preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_path: filePath, proposed_content: proposedContent }),
+  });
+  if (!res.ok) throw new Error("Failed to generate diff preview");
+  return res.json();
+}
+
+export async function applyDiff(filePath: string, proposedContent: string): Promise<ApplyDiffResponse> {
+  const res = await fetch(`${API_BASE}/api/diff/apply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_path: filePath, proposed_content: proposedContent }),
+  });
+  if (!res.ok) throw new Error("Failed to apply code changes to file");
+  return res.json();
+}

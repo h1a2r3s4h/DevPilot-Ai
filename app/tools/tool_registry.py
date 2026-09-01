@@ -1,6 +1,7 @@
 from app.tools.rag_search_tool import RAGSearchTool
 from app.tools.memory_tool import MemoryTool
 from app.tools.code_execution_tool import CodeExecutionTool
+from app.tools.web_search_tool import WebSearchTool
 
 class ToolRegistry:
     def __init__(self):
@@ -8,7 +9,7 @@ class ToolRegistry:
         self._register_defaults()
 
     def _register_defaults(self):
-        for tool in [RAGSearchTool(), MemoryTool(), CodeExecutionTool()]:
+        for tool in [RAGSearchTool(), MemoryTool(), CodeExecutionTool(), WebSearchTool()]:
             self._tools[tool.name] = tool
 
     def get(self, name: str):
