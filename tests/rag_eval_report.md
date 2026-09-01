@@ -1,15 +1,15 @@
 # 📈 RAG Evaluation Benchmark Report
 
-**Generated At:** 2026-09-01 17:35:37
+**Generated At:** 2026-09-01 20:35:58
 **Total Query Test Cases:** 8
 
 ## 📊 Retrieval Performance Metrics
 
 | Retrieval Pipeline | MRR (Mean Reciprocal Rank) | Hit @ 1 | Hit @ 3 | Hit @ 5 | Avg Latency |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **BM25 Keyword Search** | `0.0312` | `0.0%` | `0.0%` | `12.5%` | `18.0ms` |
-| **FAISS Vector Search** | `0.3750` | `37.5%` | `37.5%` | `37.5%` | `419.9ms` |
-| **Hybrid RAG (BM25 + FAISS + Reranker)** | **`0.1250`** | **`12.5%`** | **`12.5%`** | **`12.5%`** | `573.5ms` |
+| **BM25 Keyword Search** | `1.0000` | `100.0%` | `100.0%` | `100.0%` | `2.2ms` |
+| **FAISS Vector Search** | `0.5729` | `50.0%` | `62.5%` | `75.0%` | `65.3ms` |
+| **Hybrid RAG (BM25 + FAISS + Reranker)** | **`0.8542`** | **`75.0%`** | **`100.0%`** | **`100.0%`** | `391.2ms` |
 
 ---
 
