@@ -242,17 +242,6 @@ Both result sets are merged and a cross-encoder model performs final reranking f
 
 ## ⚡ Redis Caching Layer
 
-```
-User Query
-     ↓
-Redis Cache
-     ↓
-Cache Hit? ──Yes──▶ Return Cached Answer (instant)
-     │ No
-     ▼
-BM25 + FAISS Retrieval → LLM → Store in Redis
-```
-
 ### What gets cached
 
 | Cached Component | Benefit |
