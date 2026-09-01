@@ -34,11 +34,10 @@ User Request:
 {instruction}
 
 Rules:
-1. Explain the codebase in plain English.
-2. Summarize architecture, folders, and important files.
-3. Do NOT dump raw code unless explicitly asked.
-4. Give a structured answer.
-5. Mention relevant files.
+1. Provide a clear explanation of the proposed solution.
+2. ALWAYS include complete, clean, production-ready Python code inside ```python ``` code blocks.
+3. Ensure the code is self-contained and ready to execute without missing imports or placeholders.
+4. Mention relevant files or architecture if applicable.
 
 Answer:
 """

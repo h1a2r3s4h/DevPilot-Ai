@@ -16,7 +16,8 @@ instructor
 # RAG
 torch
 faiss-cpu
-sentence-transformers
+transformers==4.46.3
+sentence-transformers==3.1.1
 numpy==2.3.5
 
 # Agents
