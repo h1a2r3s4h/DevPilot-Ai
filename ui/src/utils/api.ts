@@ -203,3 +203,110 @@ export async function applyDiff(filePath: string, proposedContent: string): Prom
   if (!res.ok) throw new Error("Failed to apply code changes to file");
   return res.json();
 }
+
+// Observability interfaces
+export interface ObservabilityOverview {
+  metrics: {
+    uptime_seconds: number;
+    total_requests: number;
+    total_errors: number;
+    error_rate_pct: number;
+    latency_ms: {
+      avg: number;
+      p50: number;
+      p95: number;
+    };
+    status_codes: Record<string, number>;
+    top_routes: Record<string, number>;
+    llm: {
+      total_calls: number;
+      estimated_tokens: number;
+      errors: number;
+    };
+    rag: {
+      queries: number;
+      docs_retrieved: number;
+      avg_retrieval_ms: number;
+    };
+    cache: {
+      hits: number;
+      misses: number;
+      hit_rate_pct: number;
+    };
+    agent: {
+      runs: number;
+      steps: number;
+      errors: number;
+    };
+  };
+  health: SystemHealth;
+}
+
+export interface SystemHealth {
+  status: "HEALTHY" | "DEGRADED" | "DOWN";
+  timestamp: string;
+  system: {
+    cpu_percent: number;
+    memory: {
+      total_mb: number;
+      used_mb: number;
+      percent: number;
+    };
+    disk: {
+      total_gb: number;
+      free_gb: number;
+      percent: number;
+    };
+  };
+  components: Record<string, { status: string; [key: string]: any }>;
+}
+
+export interface SystemLog {
+  id: string;
+  timestamp: string;
+  level: "INFO" | "WARN" | "ERROR" | "SUCCESS" | "TRACE";
+  logger: string;
+  component: string;
+  message: string;
+  details?: any;
+}
+
+export interface TraceSpan {
+  id: string;
+  name: string;
+  type: "RAG" | "AGENT" | "LLM" | "CACHE" | "DOCKER";
+  timestamp: string;
+  duration_ms: number;
+  status: "SUCCESS" | "ERROR";
+  metadata?: any;
+}
+
+export async function fetchObservabilityOverview(): Promise<ObservabilityOverview> {
+  const res = await fetch(`${API_BASE}/api/observability/overview`);
+  if (!res.ok) throw new Error("Failed to fetch observability metrics");
+  return res.json();
+}
+
+export async function fetchObservabilityLogs(level?: string, search?: string, limit = 100): Promise<SystemLog[]> {
+  const params = new URLSearchParams();
+  if (level) params.append("level", level);
+  if (search) params.append("search", search);
+  params.append("limit", limit.toString());
+
+  const res = await fetch(`${API_BASE}/api/observability/logs?${params.toString()}`);
+  if (!res.ok) throw new Error("Failed to fetch system logs");
+  const data = await res.json();
+  return data.logs || [];
+}
+
+export async function fetchObservabilityTraces(limit = 50): Promise<TraceSpan[]> {
+  const res = await fetch(`${API_BASE}/api/observability/traces?limit=${limit}`);
+  if (!res.ok) throw new Error("Failed to fetch trace spans");
+  const data = await res.json();
+  return data.spans || [];
+}
+
+export async function clearObservabilityLogs(): Promise<void> {
+  await fetch(`${API_BASE}/api/observability/logs/clear`, { method: "POST" });
+}
+

@@ -1,6 +1,7 @@
 import os
 import json
 import redis
+from app.core.observability import metrics_tracker
 
 REDIS_URL = os.getenv("REDIS_URL")
 
@@ -16,9 +17,12 @@ def get_cache(key):
     try:
         value = redis_client.get(key)
         if value:
+            metrics_tracker.record_cache(hit=True)
             return json.loads(value)
+        else:
+            metrics_tracker.record_cache(hit=False)
     except Exception:
-        pass
+        metrics_tracker.record_cache(hit=False)
     return None
 
 def set_cache(key, value, ttl=3600):

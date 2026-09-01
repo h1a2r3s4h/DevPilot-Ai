@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { RepoManager } from "./components/RepoManager";
 import { ChatWindow } from "./components/ChatWindow";
+import { ObservabilityDashboard } from "./components/ObservabilityDashboard";
 import { fetchRepos } from "./utils/api";
 
 function App() {
@@ -42,6 +43,8 @@ function App() {
         return { badge: "AGENT", subtitle: "MULTI-AGENT ORCHESTRATION" };
       case "repos":
         return { badge: "REPOS", subtitle: "INDEX & MANAGE CODEBASES" };
+      case "observability":
+        return { badge: "TELEMETRY", subtitle: "SYSTEM MONITORING & LOGS" };
       default:
         return { badge: "", subtitle: "" };
     }
@@ -90,6 +93,8 @@ function App() {
         <div className="flex-1 overflow-hidden flex flex-col relative z-10">
           {activeMode === "repos" ? (
             <RepoManager onRepoUpdated={updateActiveRepo} />
+          ) : activeMode === "observability" ? (
+            <ObservabilityDashboard />
           ) : (
             <ChatWindow mode={activeMode as "ask" | "agent"} />
           )}
@@ -98,5 +103,6 @@ function App() {
     </div>
   );
 }
+
 
 export default App;

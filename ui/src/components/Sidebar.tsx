@@ -1,5 +1,5 @@
 import React from "react";
-import { MessageSquare, Bot, Database, Server } from "lucide-react";
+import { MessageSquare, Bot, Database, Server, Activity } from "lucide-react";
 
 interface SidebarProps {
   activeMode: string;
@@ -101,6 +101,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeMode, setActiveMode }) =
           <Database size={16} />
           <span>Manage Repos</span>
         </button>
+
+        <button
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-left border ${
+            activeMode === "observability"
+              ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-md shadow-cyan-500/2"
+              : "bg-transparent border-transparent text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 hover:border-zinc-800"
+          }`}
+          onClick={() => setActiveMode("observability")}
+        >
+          <Activity size={16} />
+          <span>Observability</span>
+        </button>
       </nav>
 
       {/* API Details Box */}
@@ -112,10 +124,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeMode, setActiveMode }) =
         <div className="font-mono text-[10px] bg-zinc-950/80 border border-zinc-900 text-zinc-400 p-3 rounded-lg leading-relaxed space-y-1">
           <div><span className="text-emerald-500 font-semibold">POST</span> /ask/stream</div>
           <div><span className="text-emerald-500 font-semibold">POST</span> /agent/run/stream</div>
-          <div><span className="text-emerald-500 font-semibold">POST</span> /upload-github</div>
+          <div><span className="text-sky-500 font-semibold">GET</span>  /api/observability/overview</div>
           <div><span className="text-sky-500 font-semibold">GET</span>  /repos</div>
         </div>
       </div>
     </aside>
   );
 };
+

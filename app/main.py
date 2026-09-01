@@ -13,12 +13,16 @@ from app.routes.mcp_route import router as mcp_router
 from app.routes.upload_repo import router as repo_router
 from app.routes.execution_route import router as execution_router
 from app.routes.diff_route import router as diff_router
+from app.routes.observability_route import router as observability_router
+from app.core.telemetry_middleware import TelemetryMiddleware
+from app.core.observability import log_tracker
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.limiter import limiter
 from dotenv import load_dotenv
 
 load_dotenv()
-app = FastAPI()
+app = FastAPI(title="DevPilot AI Gateway")
+app.add_middleware(TelemetryMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # for development
@@ -31,6 +35,7 @@ app.add_middleware(SlowAPIMiddleware)
 
 @app.on_event("startup")
 def startup_event():
+    log_tracker.add_event(level="INFO", component="SYSTEM", message="DevPilot AI FastAPI server initialized with Telemetry & Observability")
     from app.services.watcher_service import workspace_watcher
     workspace_watcher.start()
 
@@ -55,3 +60,4 @@ app.include_router(mcp_router)
 app.include_router(repo_router)
 app.include_router(execution_router)
 app.include_router(diff_router)
+app.include_router(observability_router)

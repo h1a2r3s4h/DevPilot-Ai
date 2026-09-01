@@ -43,6 +43,7 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 | 🔍 | **Hybrid RAG Pipeline** | BM25 + FAISS + Cross-Encoder reranking for precision retrieval |
 | 🤖 | **Multi-Agent System** | Planner → Coder → Reviewer → Debugger → Executor (with Pydantic structure enforcement via `instructor`) |
 | 🌐 | **Live Web Search** | Real-time external documentation lookup (PyPI, MDN, GitHub) via `ddgs` & Tavily fallback |
+| 📊 | **Observability & Telemetry** | In-memory telemetry engine (p50/p95 latency, throughput, token usage, trace spans) + React Dashboard |
 | 🎨 | **Git Diff & Apply** | Visual unified git diff preview modal with one-click direct workspace file editing |
 | ⚡ | **Async Task Queue** | **Celery + Redis** task queue for non-blocking asynchronous Docker sandbox code execution |
 | 📈 | **RAG Eval Suite** | Automated benchmarking (`tests/eval_rag.py`) measuring **Hit Rate@K**, **MRR**, and **Context Precision** |
@@ -55,9 +56,10 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 | 🌳 | **Smart Chunking** | AST-based splitting at function/class boundaries |
 | 🔌 | **MCP Server** | Model Context Protocol integration for Claude Desktop & VS Code |
 | 🛡️ | **Rate Limiting** | 10 req/min per IP via SlowAPI |
-| 🎨 | **React UI** | Premium dark Cyber Cyan React (Vite) interface with diff modal & copy tools |
+| 🎨 | **React UI** | Premium dark Cyber Cyan React (Vite) interface with telemetry dashboard, diff modal & copy tools |
 | 📊 | **Interactive Flowcharts** | Auto-generates & renders responsive visual Mermaid flowcharts for complex flows |
 | 🔄 | **Auto-Watcher** | Real-time background workspace file watcher & auto-indexer |
+
 
 ---
 
@@ -580,8 +582,14 @@ cd ui && npm install && npm run dev
 | `POST` | `/ask/stream` | Ask a question (streaming SSE) |
 | `POST` | `/agent/run` | Run a multi-agent task |
 | `POST` | `/agent/run/stream` | Run agents with streaming SSE |
+| `GET` | `/api/observability/overview` | Real-time metrics summary & system health |
+| `GET` | `/api/observability/logs` | Searchable system & execution log feed |
+| `GET` | `/api/observability/traces` | Recorded trace span execution timelines |
+| `GET` | `/api/observability/health` | Diagnostic status of host CPU, RAM, Redis, FAISS |
+| `POST` | `/api/observability/logs/clear` | Clear the in-memory log buffer |
 | `GET` | `/mcp/tools` | List available MCP tools |
 | `POST` | `/mcp/call` | Call a specific MCP tool |
+
 
 ---
 
@@ -662,7 +670,49 @@ Hybrid RAG (BM25+FAISS+Rerank) | 0.1250  |  12.5%  |  12.5%  |  12.5%  |  573.5m
 
 ---
 
+## 📊 Observability & System Telemetry
+
+DevPilot AI includes a full zero-overhead in-memory **Observability & Telemetry Engine** (`app/core/observability.py`) hooked into an interactive React UI Dashboard:
+
+```
+                               ┌──────────────────────────────────────────────┐
+                               │       React UI - Observability Dashboard      │
+                               └──────────────────────┬───────────────────────┘
+                                                      │ REST Poll (3s Live)
+                                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ FastAPI Core Gateway                                                                        │
+│ ┌──────────────────────────────────────┐     ┌───────────────────────────────────────────┐  │
+│ │ Telemetry & Latency Middleware       │     │ Observability API Endpoints               │  │
+│ └──────────────────┬───────────────────┘     │ - GET /api/observability/overview         │  │
+│                    │                         │ - GET /api/observability/logs             │  │
+│                    ▼                         │ - GET /api/observability/traces           │  │
+│ ┌──────────────────────────────────────────┐ │ - GET /api/observability/health           │  │
+│ │ Observability Engine (core/observability)│ └───────────────────────────────────────────┘  │
+│ │  - MetricsTracker (p50/p95, Tokens, Hits)│                                                │
+│ │  - LogTracker (Rotating Log Buffer)      │ ┌───────────────────────────────────────────┐  │
+│ │  - TraceTracker (LangSmith Spans)        │ │ LangSmith Tracing & Spans                 │  │
+│ └──────────────────▲───────────────────────┘ └───────────────────────────────────────────┘  │
+└────────────────────┼────────────────────────────────────────────────────────────────────────┘
+                     │ Instrumented Telemetry Hooks
+       ┌─────────────┼───────────────┬─────────────────┐
+       ▼             ▼               ▼                 ▼
+ ┌──────────┐ ┌────────────┐ ┌───────────────┐ ┌───────────────┐
+ │ RAG      │ │ Agent      │ │ LLM Provider  │ │ Cache & Exec  │
+ │ Engine   │ │ Supervisor │ │ & Streaming   │ │ Engine        │
+ └──────────┘ └────────────┘ └───────────────┘ └───────────────┘
+```
+
+### Telemetry Core Features
+- **Metrics Tracker**: Thread-safe calculation of p50/p95 latency percentiles, error rates, LLM token estimations, RAG retrieval speeds, and Redis cache hit ratios.
+- **Structured Log Buffer**: Rotating 500-entry log handler capturing real-time system logs with severity levels (`INFO`, `WARN`, `ERROR`).
+- **Trace Span Recorder**: Tracks execution durations and metadata for RAG hybrid search queries, multi-agent step tasks, and streaming LLM token yields.
+- **Component Diagnostic Grid**: Real-time diagnostic status for FastAPI server, Redis cache, FAISS vector store, host CPU/RAM/Disk, and LangSmith tracing.
+
+---
+
 ## 📋 Requirements
+
 
 ```
 fastapi              uvicorn              sentence-transformers
@@ -681,6 +731,7 @@ redis                requests             anthropic
 | **Retrieval-Augmented Generation** | FAISS + sentence-transformers for semantic code retrieval |
 | **Hybrid Search** | BM25 + FAISS merged and reranked by Cross-Encoder |
 | **Live External Web Search** | Real-time web documentation search (`ddgs` + Tavily fallback) |
+| **Observability & Telemetry** | In-memory metric tracking, trace spans, log stream, and React dashboard |
 | **Git Code Diff & Apply** | Unified git diff viewer with one-click direct workspace file editing |
 | **RAG Evaluation Suite** | Automated benchmarking (`Hit@K`, `MRR`) via `tests/eval_rag.py` |
 | **Asynchronous Sandboxing** | Celery + Redis task queue for non-blocking Docker execution |
@@ -694,6 +745,7 @@ redis                requests             anthropic
 | **Model Context Protocol** | Full MCP server for Claude Desktop, Cursor, VS Code |
 | **AST-based Code Chunking** | Semantic Python splitting at function/class boundaries |
 | **FastAPI Production Design** | Async endpoints, rate limiting, structured agent outputs |
+
 
 ---
 
