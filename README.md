@@ -40,7 +40,7 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 
 | | Feature | Description |
 |---|---|---|
-| 🔍 | **Hybrid RAG Pipeline** | BM25 + FAISS + Cross-Encoder reranking for precision retrieval |
+| 🔍 | **Hybrid RAG Pipeline** | BM25 + FAISS (Cosine FlatIP) + Reciprocal Rank Fusion (RRF) + Cross-Encoder reranking & metadata retention |
 | 🤖 | **Multi-Agent System** | Planner → Coder → Reviewer → Debugger → Executor (with Pydantic structure enforcement via `instructor`) |
 | 🌐 | **Live Web Search** | Real-time external documentation lookup (PyPI, MDN, GitHub) via `ddgs` & Tavily fallback |
 | 📊 | **Observability & Telemetry** | In-memory telemetry engine (p50/p95 latency, throughput, token usage, trace spans) + React Dashboard |
@@ -64,6 +64,13 @@ DevPilot AI is not just another chatbot wrapper. It's a **fully autonomous devel
 ---
 
 ## 🏗️ System Architecture
+
+<p align="center">
+  <img src="assets/architecture.png" alt="DevPilot AI System Architecture" width="100%" />
+</p>
+
+<details>
+<summary><b>View Text / Mermaid Architecture Diagram</b></summary>
 
 ```mermaid
 graph TD
@@ -129,9 +136,17 @@ graph TD
     FastAPI --> OpenRouter
 ```
 
+</details>
+
 ---
 
-## 🔄 Comprehensive Request Flows
+## 🔄 End-to-End Execution Flow
+
+<p align="center">
+  <img src="assets/end_to_end_flow.jpg" alt="DevPilot AI End-to-End Flow" width="100%" />
+</p>
+
+### Detailed Request Sequence Diagrams
 
 ### 1. Ask (RAG) Mode Request Flow
 
@@ -215,30 +230,28 @@ sequenceDiagram
 
 ## 🔍 Hybrid Retrieval Architecture
 
-DevPilot AI uses a **3-stage retrieval pipeline** for maximum precision.
+DevPilot AI uses a **4-stage retrieval & rank fusion pipeline** for maximum code precision.
 
 ### Stage 1 — BM25 (Keyword Search)
-Exact matches for API names, function names, class names, variable identifiers.
-```
-Query: "create_user()"  →  BM25 directly matches exact occurrences
-```
+Exact matches for API names, function names, class names, and variable identifiers.
 
-### Stage 2 — FAISS (Vector Search)
-Semantic understanding for natural language and conceptually related code.
-```
-Query: "How is authentication implemented?"
-→ Finds generate_jwt_token() via semantic similarity
-```
+### Stage 2 — FAISS Vector Search (Normalized Cosine Similarity)
+Semantic vector understanding powered by `BAAI/bge-small-en-v1.5` embeddings (384d) with $L_2$ normalization and FAISS `IndexFlatIP` (Inner Product / Cosine Distance).
 
-### Stage 3 — Cross-Encoder Reranker
-Both result sets are merged and a cross-encoder model performs final reranking for the highest-quality top-K context passed to the LLM.
+### Stage 3 — Reciprocal Rank Fusion (RRF)
+Combines BM25 lexical rankings and FAISS dense vector rankings using standard RRF score fusion:
+$$RRF\_Score(d) = \frac{1}{60 + \text{rank}_{\text{bm25}}(d)} + \frac{1}{60 + \text{rank}_{\text{faiss}}(d)}$$
+
+### Stage 4 — Cross-Encoder Reranking & Metadata Retention
+Ranks candidates via `cross-encoder/ms-marco-MiniLM-L-6-v2` and formats final chunks into clean Markdown context blocks (`### File: <path> | Symbol: <name>`) to preserve file path awareness for the LLM.
 
 | Component | Purpose |
 |---|---|
-| BM25 | Exact keyword matching |
-| FAISS | Semantic similarity |
-| Cross Encoder | Final reranking |
-| LLM | Answer generation |
+| BM25 | Exact keyword & identifier matching |
+| FAISS (FlatIP) | Dense vector semantic similarity |
+| RRF Merger | Reciprocal Rank Fusion score blending |
+| Cross Encoder | Second-pass reranking |
+| Context Header | Preserves file path & symbol names for LLM |
 
 ---
 
@@ -314,9 +327,9 @@ AST Chunking (Python) / Line-based (others)
      ↓
 Metadata Injection
      ↓
-Embeddings (all-MiniLM-L6-v2)
+Embeddings (BAAI/bge-small-en-v1.5, normalized)
      ↓
-FAISS Storage
+FAISS IndexFlatIP (Cosine Similarity)
 ```
 
 ### Metadata stored per chunk

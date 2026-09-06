@@ -16,12 +16,15 @@ class VectorStore:
         if os.path.exists(self.index_file) and os.path.exists(self.meta_file):
             self.load()
         else:
-            self.index = faiss.IndexFlatL2(dim)
+            self.index = faiss.IndexFlatIP(dim)
             self.texts = []
             self.metadata = []
 
     def add(self, embeddings, texts, metadatas=None):
         vectors = np.array(embeddings).astype("float32")
+        norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        vectors = vectors / norms
         self.index.add(vectors)
         self.texts.extend(texts)
         if metadatas:
@@ -35,6 +38,9 @@ class VectorStore:
             return []
         k = min(k, self.index.ntotal)
         query = np.array([query_embedding]).astype("float32")
+        norm = np.linalg.norm(query)
+        if norm > 0:
+            query = query / norm
         distances, indices = self.index.search(query, k)
         results = []
         for i in indices[0]:
@@ -65,7 +71,7 @@ class VectorStore:
         if len(indices_to_keep) == len(self.metadata):
             return
 
-        new_index = faiss.IndexFlatL2(self.dim)
+        new_index = faiss.IndexFlatIP(self.dim)
         new_texts = []
         new_metadata = []
 
