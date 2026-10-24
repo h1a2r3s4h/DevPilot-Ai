@@ -7,6 +7,7 @@ from app.routes.upload_repo import (
     chunk_code_lines, 
     SUPPORTED_EXT, 
     EXCLUDED_DIRS, 
+    is_ignored_file,
     read_file
 )
 from app.services.rag_service import hybrid_retriever
@@ -68,6 +69,8 @@ class WorkspaceWatcher:
             dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
 
             for file in files:
+                if is_ignored_file(file):
+                    continue
                 if file.endswith(SUPPORTED_EXT):
                     full_path = os.path.join(root, file)
                     found_files.add(full_path)
@@ -101,6 +104,8 @@ class WorkspaceWatcher:
         for root, dirs, files in os.walk(self.active_path):
             dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
             for file in files:
+                if is_ignored_file(file):
+                    continue
                 if file.endswith(SUPPORTED_EXT):
                     full_path = os.path.join(root, file)
                     try:

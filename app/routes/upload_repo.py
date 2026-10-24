@@ -37,6 +37,26 @@ SUPPORTED_EXT = (
 # Folders to skip during indexing to avoid searching junk or huge dependency files
 EXCLUDED_DIRS = {"venv", ".venv", "node_modules", "__pycache__", ".git", ".mypy_cache"}
 
+# Massive lockfiles, bundles, or minified files to skip during indexing
+EXCLUDED_FILES = {
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "poetry.lock",
+    "Pipfile.lock",
+    "Cargo.lock",
+    "composer.lock",
+    "npm-shrinkwrap.json",
+}
+
+def is_ignored_file(filename: str) -> bool:
+    name_lower = filename.lower()
+    if name_lower in EXCLUDED_FILES:
+        return True
+    if name_lower.endswith((".min.js", ".min.css", ".map", ".bundle.js", ".bundle.css")):
+        return True
+    return False
+
 # File where registered repositories are saved
 REPO_REGISTRY = "repo_registry.json"
 
@@ -190,6 +210,10 @@ async def upload_repo(request: RepoRequest):
         dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
 
         for file in files:
+            # Skip massive lockfiles and bundles to keep indexing fast
+            if is_ignored_file(file):
+                continue
+
             # Process only supported source code/documentation files
             if file.endswith(SUPPORTED_EXT):
                 full_path = os.path.join(root, file)
@@ -266,8 +290,8 @@ async def upload_github(
     tmp_dir = tempfile.mkdtemp() # Create a temporary folder to store cloned repo
 
     try:
-        # Clone the repository from GitHub
-        Repo.clone_from(url, tmp_dir)
+        # Clone the repository from GitHub (shallow clone with depth=1 for 10x faster transfer)
+        Repo.clone_from(url, tmp_dir, depth=1)
 
         # Clear existing FAISS vector index files
         for f in ["faiss_index.index", "faiss_index.pkl"]:
