@@ -32,9 +32,11 @@ Most AI coding assistants only generate text. If there is a syntax error or a br
 
 ## 🏗️ Architecture & End-to-End Flow
 
-<p align="center">
-  <img src="assets/architecture_and_flow.jpg" alt="DevPilot AI Architecture and Flow" width="100%" />
-</p>
+<div align="center">
+
+![DevPilot AI Architecture and Flow](./assets/architecture_and_flow.png)
+
+</div>
 
 ---
 

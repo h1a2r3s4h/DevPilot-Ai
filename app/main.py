@@ -94,6 +94,10 @@ async def rate_limit_handler(request, exc):
     )
 
 # Register all API routes (endpoints for asking questions, uploading repos, running agents, streaming, etc.)
+@app.get("/")
+def root():
+    return {"status": "ONLINE", "service": "DevPilot AI Backend", "docs": "/docs"}
+
 app.include_router(upload_router)
 app.include_router(ask_router)
 app.include_router(upload_repo_router)
