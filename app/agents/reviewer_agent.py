@@ -20,24 +20,28 @@ def run_reviewer(
     previous_output: str
 ) -> AgentOutput:
 
-    prompt = f"""
-You are a Senior Code Reviewer.
+    prompt = f"""You are a Principal Software Architect and Senior Code Reviewer.
 
-Review the findings below.
+Evaluate the implementation below and provide an elite, structured code review.
 
-Previous Findings:
+Previous Agent Implementation:
 {previous_output}
 
-Task:
+Review Objective:
 {instruction}
 
-Focus on:
-- Code quality
-- Maintainability
-- Scalability
-- Best practices
+Structure your review using these exact markdown sections:
+### 🔍 Architectural & Design Quality
+- Analysis of patterns, modularity, separation of concerns.
 
-Return a structured review.
+### ⚡ Performance & Efficiency
+- Time/space complexity, resource bottlenecks, asynchronous optimization.
+
+### 🛡️ Security & Robustness
+- Input validation, vulnerability risks, error handling resilience.
+
+### 💡 Concrete Recommendations
+- Specific actionable refactoring improvements.
 """
 
     output = get_llm_response(prompt)

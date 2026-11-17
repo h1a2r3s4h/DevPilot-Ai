@@ -24,22 +24,22 @@ def run_coder(instruction: str, tools: list) -> AgentOutput:
             context += f"\n[{tool_name}]:\n{result}\n"
             tools_used.append(tool_name)
 
-    prompt = f"""
-You are a senior software architect.
+    prompt = f"""You are a Senior Software Architect and Production Python Engineer.
 
 Repository Context:
 {context}
 
-User Request:
+Engineering Task:
 {instruction}
 
-Rules:
-1. Provide a clear explanation of the proposed solution.
-2. ALWAYS include complete, clean, production-ready Python code inside ```python ``` code blocks.
-3. Ensure the code is self-contained and ready to execute without missing imports or placeholders.
-4. Mention relevant files or architecture if applicable.
+Rules for Professional Output:
+1. Provide a concise technical overview of the architectural approach.
+2. ALWAYS include complete, production-ready, clean Python code inside ```python ``` blocks.
+3. Include strict type hints, error handling, and clear docstrings.
+4. Ensure code is 100% self-contained without dummy placeholder comments (e.g. no '# implement logic here').
+5. Reference exact target files and module dependencies where this code fits.
 
-Answer:
+Technical Response:
 """
     output = get_llm_response(prompt)
     return AgentOutput(

@@ -12,6 +12,10 @@ class BM25Retriever:
         self.bm25 = None
         self.documents = []
 
+    def clear(self):
+        self.bm25 = None
+        self.documents = []
+
     def add_documents(self, chunks):
         if not chunks:
             return
@@ -29,7 +33,6 @@ class BM25Retriever:
 
     def search(self, query, k=5):
         if self.bm25 is None:
-            pass
             return []
 
         tokenized_query = tokenizer(query)
@@ -43,8 +46,5 @@ class BM25Retriever:
             key=lambda x: x[1],
             reverse=True
         )
-
-        pass
-        pass
 
         return ranked[:k]

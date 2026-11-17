@@ -37,3 +37,20 @@ dist/
 htmlcov/
 .pytest_cache/
 
+# Runtime Data, Redis Dumps & Dynamic Vector Indices
+*.index
+*.pkl
+dump.rdb
+active_repo.json
+repo_registry.json
+data/cloned_repos/
+data/indices/
+data/app_storage/
+data/home/
+data/credentials/
+
+# Node / Frontend artifacts
+node_modules/
+ui/dist/
+
+

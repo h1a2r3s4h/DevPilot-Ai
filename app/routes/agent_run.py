@@ -6,17 +6,29 @@ from app.core.limiter import limiter
 from app.agents.orchestrator import run_multi_agent_system
 from app.core.observability import metrics_tracker, log_tracker, trace_tracker
 
+from app.core.guardrails import guardrails
 import json
 
 router = APIRouter()
 
 class AgentRequest(BaseModel):
     query: str
+    user_id: str = "default_user"
+    session_id: str = "default_session"
 
 @router.post("/agent/run")
 def run_agent(
     body: AgentRequest
 ):
+    guard_check = guardrails.inspect_prompt(body.query)
+    if not guard_check.is_safe:
+        return {
+            "query": body.query,
+            "steps_executed": 0,
+            "results": [],
+            "final_output": f"🛡️ **Security Guardrail Block**: {guard_check.reason}"
+        }
+
     start = time.time()
     try:
         res = run_multi_agent_system(body.query)
@@ -62,6 +74,17 @@ def run_agent_stream(
 ):
     def event_generator():
         start = time.time()
+        guard_check = guardrails.inspect_prompt(body.query)
+        if not guard_check.is_safe:
+            chunk = {
+                "agent": "guardrail",
+                "status": "error",
+                "output": f"🛡️ **Security Guardrail Block**: {guard_check.reason}",
+            }
+            yield f"data: {json.dumps(chunk)}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
         try:
             result = run_multi_agent_system(body.query)
             steps = result.get("results", [])

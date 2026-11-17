@@ -16,10 +16,22 @@ export interface AgentStep {
   output: string;
 }
 
+export interface ActiveRepoResponse {
+  name: string;
+  path: string;
+}
+
 // Fetch all indexed repositories
 export async function fetchRepos(): Promise<RepoRegistry> {
   const res = await fetch(`${API_BASE}/repos`);
   if (!res.ok) throw new Error("Failed to fetch repositories");
+  return res.json();
+}
+
+// Fetch currently active repository details
+export async function fetchActiveRepo(): Promise<ActiveRepoResponse> {
+  const res = await fetch(`${API_BASE}/repos/active`);
+  if (!res.ok) throw new Error("Failed to fetch active repository");
   return res.json();
 }
 
@@ -30,8 +42,9 @@ export async function switchRepo(path: string): Promise<IndexResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path }),
   });
-  if (!res.ok) throw new Error("Failed to switch repository");
-  return res.json();
+  const data = await res.json().catch(() => ({ error: res.statusText }));
+  if (!res.ok) throw new Error(data.error || data.detail || `Failed to switch repository (HTTP ${res.status})`);
+  return data;
 }
 
 // Index a local repository path
@@ -41,8 +54,9 @@ export async function indexLocalRepo(path: string): Promise<IndexResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path }),
   });
-  if (!res.ok) throw new Error("Failed to index repository");
-  return res.json();
+  const data = await res.json().catch(() => ({ error: res.statusText }));
+  if (!res.ok) throw new Error(data.error || data.detail || `Failed to index repository (HTTP ${res.status})`);
+  return data;
 }
 
 // Clone and index a GitHub repository
@@ -52,21 +66,52 @@ export async function cloneAndIndexGithub(url: string): Promise<IndexResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
   });
-  if (!res.ok) throw new Error("Failed to clone and index GitHub repository");
-  return res.json();
+  const data = await res.json().catch(() => ({ error: res.statusText }));
+  if (!res.ok) throw new Error(data.error || data.detail || `Failed to clone and index GitHub repository (HTTP ${res.status})`);
+  return data;
+}
+
+// Session Management for isolated conversation contexts
+export function getOrCreateSessionId(): string {
+  try {
+    let id = localStorage.getItem("devpilot_session_id");
+    if (!id) {
+      id = "sess_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now();
+      localStorage.setItem("devpilot_session_id", id);
+    }
+    return id;
+  } catch {
+    return "sess_default_" + Date.now();
+  }
+}
+
+export function resetSessionId(): string {
+  try {
+    const newId = "sess_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now();
+    localStorage.setItem("devpilot_session_id", newId);
+    return newId;
+  } catch {
+    return "sess_default_" + Date.now();
+  }
 }
 
 // Stream Ask/RAG response
 export async function streamAsk(
   prompt: string,
   onToken: (token: string) => void,
-  onError: (err: any) => void
+  onError: (err: any) => void,
+  sessionId?: string
 ): Promise<void> {
   try {
+    const session_id = sessionId || getOrCreateSessionId();
     const response = await fetch(`${API_BASE}/ask/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ 
+        prompt,
+        user_id: "default_user",
+        session_id
+      }),
     });
 
     if (!response.ok) {
@@ -117,13 +162,19 @@ export async function streamAgentRun(
   query: string,
   onStep: (step: AgentStep) => void,
   onDone: () => void,
-  onError: (err: any) => void
+  onError: (err: any) => void,
+  sessionId?: string
 ): Promise<void> {
   try {
+    const session_id = sessionId || getOrCreateSessionId();
     const response = await fetch(`${API_BASE}/agent/run/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ 
+        query,
+        user_id: "default_user",
+        session_id
+      }),
     });
 
     if (!response.ok) {

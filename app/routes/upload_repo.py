@@ -4,11 +4,17 @@ import ast
 import shutil
 import tempfile
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from app.services.rag_service import hybrid_retriever as retriever
 from app.core.limiter import limiter
 
-from git import Repo
+# Safely import GitPython without crashing server if git binary is unlinked
+try:
+    os.environ.setdefault("GIT_PYTHON_REFRESH", "0")
+    from git import Repo
+except Exception:
+    Repo = None
 
 # Create a FastAPI Router for handling repo uploads and switching endpoints
 router = APIRouter()
@@ -158,9 +164,12 @@ def chunk_by_ast(source: str, file_path: str) -> list[str]:
 # ---------------------------------------------------------
 
 ACTIVE_REPO_FILE = "active_repo.json"
+CLONED_REPOS_DIR = os.path.join(os.getcwd(), "data", "cloned_repos")
 
 # Save the currently active repository info into active_repo.json
 def save_active_repo(name: str, path: str):
+    if not name or name.startswith("tmp") or not path or "tmp" in name:
+        return
     with open(ACTIVE_REPO_FILE, "w") as f:
         json.dump({"name": name, "path": path}, f)
 
@@ -176,30 +185,110 @@ def load_active_repo() -> dict:
 
 # Add or update a repository in the registry file
 def save_repo(name: str, path: str):
+    if not name or name.startswith("tmp") or not path or "tmp" in name:
+        return
     repos = load_repos()
     repos[name] = path
     with open(REPO_REGISTRY, "w") as f:
-        json.dump(repos, f)
+        json.dump(repos, f, indent=2)
 
 # Load all registered repositories from JSON
 def load_repos() -> dict:
     if not os.path.exists(REPO_REGISTRY):
         return {}
-    with open(REPO_REGISTRY) as f:
-        return json.load(f)
+    try:
+        with open(REPO_REGISTRY) as f:
+            data = json.load(f)
+            # Filter out stale temp entries and empty keys
+            filtered = {
+                k: v for k, v in data.items()
+                if k and not k.startswith("tmp") and v and "/tmp/" not in v and "/var/folders/" not in v
+            }
+            return filtered
+    except Exception:
+        return {}
+
+# Helper to resolve paths across host/Docker environments
+def resolve_repo_path(input_path: str) -> str:
+    path = input_path.strip()
+    if path in (".", "./", "/app"):
+        return "/app" if os.path.exists("/app") else os.getcwd()
+
+    # If path directly exists
+    if os.path.exists(path):
+        return os.path.abspath(path)
+
+    # Check relative to cwd
+    cwd_rel = os.path.join(os.getcwd(), path)
+    if os.path.exists(cwd_rel):
+        return os.path.abspath(cwd_rel)
+
+    # In Docker: if user entered the host path of the current workspace repository
+    # (e.g. "/Users/.../devpilot-ai" when running inside container where project is mounted at /app)
+    if os.path.exists("/app"):
+        base_target = os.path.basename(path.rstrip("/\\")).lower()
+        if base_target in ("devpilot-ai", "app", os.path.basename(os.getcwd()).lower()) or path.rstrip("/\\").endswith("devpilot-ai"):
+            return "/app"
+
+    return path
 
 # ---------------------------------------------------------
 # API Endpoints
 # ---------------------------------------------------------
 
+# Endpoint: Get currently active repository
+@router.get("/repos/active")
+def get_active_repo():
+    active = load_active_repo()
+    if not active:
+        repos = load_repos()
+        if repos:
+            first_name = list(repos.keys())[0]
+            active = {"name": first_name, "path": repos[first_name]}
+    return active
+
+# Endpoint: List all registered repositories
+@router.get("/repos")
+def list_repos():
+    return load_repos()
+
 # Endpoint: Upload and index a local repository path
 @router.post("/upload-repo")
 async def upload_repo(request: RepoRequest):
-    path = request.path
+    raw_path = request.path.strip() if request.path else ""
+    if not raw_path:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Path cannot be empty.", "chunks_added": 0}
+        )
 
-    repo_name = os.path.basename(path)
-    save_repo(repo_name, path)
-    save_active_repo(repo_name, path)
+    path = resolve_repo_path(raw_path)
+
+    if not os.path.exists(path):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": f"Directory not found: '{raw_path}'. If running in Docker, ensure the path is accessible inside the container or use '.' / '/app'.",
+                "chunks_added": 0
+            }
+        )
+
+    if not os.path.isdir(path):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": f"Path '{raw_path}' is not a directory.",
+                "chunks_added": 0
+            }
+        )
+
+    repo_name = os.path.basename(path.rstrip("/\\")) or "repo"
+    if repo_name == "app":
+        base_raw = os.path.basename(raw_path.rstrip("/\\"))
+        if base_raw and base_raw not in ("app", ".", "./"):
+            repo_name = base_raw
+        else:
+            repo_name = "devpilot-ai"
 
     all_chunks = []
     all_meta = []
@@ -245,37 +334,60 @@ async def upload_repo(request: RepoRequest):
                         })
 
     if not all_chunks:
-        return {
-            "message": "No chunks found",
-            "chunks_added": 0
-        }
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": f"No supported code files found in '{raw_path}'. (Supported: {', '.join(SUPPORTED_EXT)})",
+                "chunks_added": 0
+            }
+        )
+
+    # Clear previous in-memory and disk indices before building new index
+    retriever.clear()
 
     # Pass code chunks to the hybrid retriever vector store for indexing
     retriever.add_documents(all_chunks, all_meta)
+    # Persist index to isolated per-repository cache
+    retriever.persist_repo(path)
+
+    save_repo(repo_name, path)
+    save_active_repo(repo_name, path)
 
     return {
         "message": "Repo indexed",
         "chunks_added": len(all_chunks)
     }
 
-# Endpoint: List all registered repositories
-@router.get("/repos")
-def list_repos():
-    return load_repos()
-
-# Endpoint: Switch to a different repository (clears old FAISS index and re-indexes)
+# Endpoint: Switch to a different repository (uses instant cached index if available)
 @router.post("/repos/switch")
 @limiter.limit("5/minute")
 async def switch_repo(
     request: Request,
     body: RepoRequest
 ):
-    # Remove existing FAISS vector index files before building new ones
-    for f in ["faiss_index.index", "faiss_index.pkl"]:
-        if os.path.exists(f):
-            os.remove(f)
+    target = body.path.strip()
+    registered = load_repos()
 
-    return await upload_repo(body)
+    # If target matches a repo name in registry, resolve to its stored path
+    if target in registered:
+        target = registered[target]
+
+    # If target is a GitHub URL, redirect to upload_github
+    if target.startswith("http://") or target.startswith("https://") or target.startswith("git@"):
+        return await upload_github(request, GithubRequest(url=target))
+
+    # Fast-path: Check if pre-built cached index exists for this repository
+    resolved_target = resolve_repo_path(target)
+    if retriever.switch_repo(resolved_target):
+        repo_name = os.path.basename(resolved_target.rstrip("/\\")) or "repo"
+        save_repo(repo_name, resolved_target)
+        save_active_repo(repo_name, resolved_target)
+        return {
+            "message": f"Instantly switched to cached index for '{repo_name}'",
+            "chunks_added": len(retriever.vector.store.texts)
+        }
+
+    return await upload_repo(RepoRequest(path=target))
 
 # Endpoint: Clone a public GitHub repo and index its code
 @router.post("/upload-github")
@@ -285,34 +397,43 @@ async def upload_github(
     body: GithubRequest
 ):
     url = body.url.strip()
+    if not url:
+        return JSONResponse(status_code=400, content={"error": "GitHub URL cannot be empty."})
 
     repo_name = url.split("/")[-1].replace(".git", "")
-    tmp_dir = tempfile.mkdtemp() # Create a temporary folder to store cloned repo
+    os.makedirs(CLONED_REPOS_DIR, exist_ok=True)
+    target_dir = os.path.join(CLONED_REPOS_DIR, repo_name)
 
     try:
-        # Clone the repository from GitHub (shallow clone with depth=1 for 10x faster transfer)
-        Repo.clone_from(url, tmp_dir, depth=1)
+        # If repo is already cloned, pull latest changes or re-clone cleanly
+        if os.path.exists(target_dir):
+            try:
+                repo = Repo(target_dir)
+                repo.remotes.origin.pull()
+            except Exception:
+                shutil.rmtree(target_dir, ignore_errors=True)
+                Repo.clone_from(url, target_dir, depth=1)
+        else:
+            Repo.clone_from(url, target_dir, depth=1)
 
-        # Clear existing FAISS vector index files
-        for f in ["faiss_index.index", "faiss_index.pkl"]:
-            if os.path.exists(f):
-                os.remove(f)
+        # Clear existing FAISS vector and BM25 index
+        retriever.clear()
 
         # Index the cloned repository
         result = await upload_repo(
-            RepoRequest(path=tmp_dir)
+            RepoRequest(path=target_dir)
         )
 
-        save_repo(repo_name, url)
+        if isinstance(result, JSONResponse):
+            return result
+
+        save_repo(repo_name, target_dir)
+        save_active_repo(repo_name, target_dir)
 
         return {
             "message": f"GitHub repo '{repo_name}' indexed",
-            "chunks_added": result["chunks_added"]
+            "chunks_added": result.get("chunks_added", 0)
         }
 
     except Exception as e:
-        return {"error": str(e)}
-
-    finally:
-        # Clean up temporary cloned directory
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})

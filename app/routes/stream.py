@@ -7,15 +7,33 @@ from app.services.rag_service import query_rag
 from app.services.llm_provider import stream_llm_response
 from app.services.cache_service import get_cache, set_cache
 from app.core.limiter import limiter
+from app.core.guardrails import guardrails
+from app.memory.memory_service import MemoryService
 
 router = APIRouter()
+memory_service = MemoryService()
 
 class StreamRequest(BaseModel):
     prompt: str
+    user_id: str = "default_user"
+    session_id: str = "default_session"
 
 @router.post("/ask/stream")
 @limiter.limit("20/minute")
 def ask_stream(request: Request, body: StreamRequest):
+    # 1. Guardrail inspection
+    guard_check = guardrails.inspect_prompt(body.prompt)
+    if not guard_check.is_safe:
+        def blocked_generator():
+            msg = f"🛡️ **Security Guardrail Block**: {guard_check.reason}"
+            yield f"data: {json.dumps(msg)}\n\n"
+            yield "data: [DONE]\n\n"
+        return StreamingResponse(
+            blocked_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+        )
+
     cache_key = "rag:" + hashlib.md5(body.prompt.encode("utf-8")).hexdigest()
 
     cached_response = get_cache(cache_key)
@@ -31,6 +49,11 @@ def ask_stream(request: Request, body: StreamRequest):
 
     context = query_rag(body.prompt)
 
+    # Fetch conversational session memory context if available
+    mem_ctx = memory_service.get_context(body.user_id, body.session_id, body.prompt)
+    short_mem = mem_ctx.get("short_term", [])
+    past_convo = "\n".join([f"{m.role}: {m.content}" for m in short_mem[-4:]]) if short_mem else "None"
+
     final_prompt = f"""You are DevPilot AI, a senior, elite software engineer analyzing a real codebase.
 
 Instructions:
@@ -41,6 +64,9 @@ Instructions:
 - Reference exact file names and paths from the context to support your statements.
 - If the answer cannot be found in the provided context, state that clearly.
 - Do NOT repeat or quote raw document file headers/metadata.
+
+Recent Conversation Context:
+{past_convo}
 
 Repository Context:
 {context}
@@ -53,7 +79,16 @@ Question: {body.prompt}
         for token in stream_llm_response(final_prompt):
             full_answer += token
             yield f"data: {json.dumps(token)}\n\n"
-        set_cache(cache_key, full_answer)
+
+        # Redact secrets and store interaction into session memory
+        sanitized_answer = guardrails.redact_secrets(full_answer)
+        set_cache(cache_key, sanitized_answer)
+        try:
+            memory_service.store_interaction(body.user_id, body.session_id, "user", body.prompt)
+            memory_service.store_interaction(body.user_id, body.session_id, "assistant", sanitized_answer)
+        except Exception:
+            pass
+
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(

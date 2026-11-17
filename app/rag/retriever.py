@@ -16,8 +16,12 @@ class Retriever:
             embeddings = embeddings.reshape(1, -1)
         self.store.add(embeddings, chunks, metadatas)
 
+    def clear(self):
+        self.store.clear()
+
     def retrieve(self, query, k=3):
         query_embedding = self.embedder.embed([query])[0]
         return self.store.search(query_embedding, k)
 
 retriever = Retriever()
+

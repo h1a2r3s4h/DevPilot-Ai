@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { fetchRepos, switchRepo, indexLocalRepo, cloneAndIndexGithub } from "../utils/api";
+import { fetchRepos, fetchActiveRepo, switchRepo, indexLocalRepo, cloneAndIndexGithub } from "../utils/api";
 import type { RepoRegistry } from "../utils/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,9 +22,14 @@ export const RepoManager: React.FC<RepoManagerProps> = ({ onRepoUpdated }) => {
 
   const loadReposList = async () => {
     try {
-      const data = await fetchRepos();
+      const [data, active] = await Promise.all([
+        fetchRepos(),
+        fetchActiveRepo().catch(() => null)
+      ]);
       setRepos(data);
-      if (Object.keys(data).length > 0 && !activeRepo) {
+      if (active && active.path) {
+        setActiveRepo(active.path);
+      } else if (Object.keys(data).length > 0 && !activeRepo) {
         const firstKey = Object.keys(data)[0];
         setActiveRepo(data[firstKey]);
       }
@@ -52,11 +57,17 @@ export const RepoManager: React.FC<RepoManagerProps> = ({ onRepoUpdated }) => {
     setLoading(true);
     setLoadingText("Indexing local codebase...");
     try {
-      const res = await indexLocalRepo(localPath);
-      triggerAlert("success", `✓ Indexed local repository successfully. Added ${res.chunks_added} chunks.`);
-      setLocalPath("");
-      loadReposList();
-      onRepoUpdated();
+      const res = await indexLocalRepo(localPath.trim());
+      if (res.error) {
+        triggerAlert("error", res.error);
+      } else if (!res.chunks_added || res.chunks_added === 0) {
+        triggerAlert("error", "No code chunks were indexed. Verify that the path exists and contains supported code files.");
+      } else {
+        triggerAlert("success", `✓ Indexed local repository successfully. Added ${res.chunks_added} chunks.`);
+        setLocalPath("");
+        loadReposList();
+        onRepoUpdated();
+      }
     } catch (err: any) {
       triggerAlert("error", `Failed to index repository: ${err.message || err}`);
     } finally {
@@ -73,10 +84,16 @@ export const RepoManager: React.FC<RepoManagerProps> = ({ onRepoUpdated }) => {
     setLoading(true);
     setLoadingText("Reindexing local codebase...");
     try {
-      const res = await switchRepo(localPath);
-      triggerAlert("success", `✓ Reindexed local repository successfully. Loaded ${res.chunks_added} chunks.`);
-      loadReposList();
-      onRepoUpdated();
+      const res = await switchRepo(localPath.trim());
+      if (res.error) {
+        triggerAlert("error", res.error);
+      } else if (!res.chunks_added || res.chunks_added === 0) {
+        triggerAlert("error", "No code chunks were indexed. Verify that the path exists and contains supported code files.");
+      } else {
+        triggerAlert("success", `✓ Reindexed local repository successfully. Loaded ${res.chunks_added} chunks.`);
+        loadReposList();
+        onRepoUpdated();
+      }
     } catch (err: any) {
       triggerAlert("error", `Failed to reset and reindex repository: ${err.message || err}`);
     } finally {
@@ -93,9 +110,11 @@ export const RepoManager: React.FC<RepoManagerProps> = ({ onRepoUpdated }) => {
     setLoading(true);
     setLoadingText("Cloning and indexing GitHub repository...");
     try {
-      const res = await cloneAndIndexGithub(githubUrl);
+      const res = await cloneAndIndexGithub(githubUrl.trim());
       if (res.error) {
         triggerAlert("error", res.error);
+      } else if (!res.chunks_added || res.chunks_added === 0) {
+        triggerAlert("error", "No code chunks were found in the cloned repository.");
       } else {
         triggerAlert("success", `✓ Indexed GitHub repository. Added ${res.chunks_added} chunks.`);
         setGithubUrl("");
@@ -119,8 +138,15 @@ export const RepoManager: React.FC<RepoManagerProps> = ({ onRepoUpdated }) => {
     setLoadingText("Switching active repository...");
     try {
       const res = await switchRepo(activeRepo);
-      triggerAlert("success", `✓ Switched active repository successfully. Loaded ${res.chunks_added} chunks.`);
-      onRepoUpdated();
+      if (res.error) {
+        triggerAlert("error", res.error);
+      } else if (!res.chunks_added || res.chunks_added === 0) {
+        triggerAlert("error", "No code chunks were found in the selected repository.");
+      } else {
+        triggerAlert("success", `✓ Switched active repository successfully. Loaded ${res.chunks_added} chunks.`);
+        loadReposList();
+        onRepoUpdated();
+      }
     } catch (err: any) {
       triggerAlert("error", `Failed to switch repository: ${err.message || err}`);
     } finally {

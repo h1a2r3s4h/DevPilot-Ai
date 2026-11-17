@@ -15,7 +15,6 @@ class HybridRetriever:
         # If vector store already has existing documents loaded, sync them to BM25
         if hasattr(self.vector.store, "texts") and self.vector.store.texts:
             self.bm25.add_documents(self.vector.store.texts)
-            pass
 
     # Add new code chunks and their metadata to both keyword (BM25) and vector (FAISS) stores
     def add_documents(
@@ -28,6 +27,26 @@ class HybridRetriever:
             chunks,
             metadatas
         )
+
+    def clear(self):
+        self.bm25.clear()
+        self.vector.clear()
+
+    def switch_repo(self, repo_id: str) -> bool:
+        """Attempts to load a cached pre-built index for the repository.
+        If found, syncs both FAISS and BM25 and returns True.
+        """
+        loaded = self.vector.store.load_for_repo(repo_id)
+        if loaded:
+            self.bm25.clear()
+            if self.vector.store.texts:
+                self.bm25.add_documents(self.vector.store.texts)
+            return True
+        return False
+
+    def persist_repo(self, repo_id: str):
+        """Saves active index into persistent per-repo storage."""
+        self.vector.store.save_for_repo(repo_id)
 
     # Alias for search()
     def retrieve(

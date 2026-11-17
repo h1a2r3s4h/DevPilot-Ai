@@ -66,6 +66,56 @@ class VectorStore:
         self.texts = data["texts"]
         self.metadata = data["metadata"]
 
+    def save_for_repo(self, repo_id: str):
+        """Persists this index to an isolated data/indices/{repo_slug} directory."""
+        import hashlib
+        repo_slug = hashlib.md5(repo_id.encode("utf-8")).hexdigest()[:12]
+        base_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "indices", repo_slug))
+        os.makedirs(base_dir, exist_ok=True)
+        idx_file = os.path.join(base_dir, "faiss_index.index")
+        pkl_file = os.path.join(base_dir, "faiss_index.pkl")
+        faiss.write_index(self.index, idx_file)
+        with open(pkl_file, "wb") as f:
+            pickle.dump({
+                "texts": self.texts,
+                "metadata": self.metadata
+            }, f)
+
+    def load_for_repo(self, repo_id: str) -> bool:
+        """Loads an isolated index for repo_id if it exists. Returns True if loaded, False otherwise."""
+        import hashlib
+        repo_slug = hashlib.md5(repo_id.encode("utf-8")).hexdigest()[:12]
+        base_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "indices", repo_slug))
+        idx_file = os.path.join(base_dir, "faiss_index.index")
+        pkl_file = os.path.join(base_dir, "faiss_index.pkl")
+        if os.path.exists(idx_file) and os.path.exists(pkl_file):
+            try:
+                self.index = faiss.read_index(idx_file)
+                with open(pkl_file, "rb") as f:
+                    data = pickle.load(f)
+                self.texts = data["texts"]
+                self.metadata = data["metadata"]
+                self.save()
+                return True
+            except Exception:
+                return False
+        return False
+
+    def clear(self):
+        self.index = faiss.IndexFlatIP(self.dim)
+        self.texts = []
+        self.metadata = []
+        if os.path.exists(self.index_file):
+            try:
+                os.remove(self.index_file)
+            except OSError:
+                pass
+        if os.path.exists(self.meta_file):
+            try:
+                os.remove(self.meta_file)
+            except OSError:
+                pass
+
     def remove_by_metadata_path(self, path: str):
         indices_to_keep = [i for i, meta in enumerate(self.metadata) if meta.get("path") != path]
         if len(indices_to_keep) == len(self.metadata):

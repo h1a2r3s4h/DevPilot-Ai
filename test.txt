@@ -1,1 +1,0 @@
-DevPilot AI is a multi-agent developer assistant using RAG and FastAPI.

@@ -1,0 +1,56 @@
+name: DevPilot AI CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend-test:
+    name: Backend Compilation & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify Python Syntax Across Modules
+        run: |
+          python -m py_compile app/main.py app/core/*.py app/routes/*.py app/rag/*.py app/tasks/*.py app/agents/*.py
+
+      - name: Run Unit Tests
+        run: |
+          python -c "from tests.test_api_endpoints import *; test_guardrails_prompt_injection_blocked(); test_guardrails_destructive_command_blocked(); test_guardrails_safe_prompt_allowed(); test_guardrails_code_execution_safety(); test_guardrails_secret_redaction(); test_observability_health_check(); test_observability_metrics_tracker(); test_diff_generator(); print('All unit tests passed successfully!')"
+
+  frontend-build:
+    name: Frontend TypeScript & Vite Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./ui
+        run: npm ci
+
+      - name: TypeScript Check & Vite Build
+        working-directory: ./ui
+        run: npm run build

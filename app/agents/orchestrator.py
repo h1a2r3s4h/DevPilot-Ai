@@ -7,7 +7,7 @@ from app.agents.debugger_agent import run_debugger
 from app.agents.executor_agent import run_executor
 from app.agents.agent_output import AgentOutput
 
-
+# Registry mapping agent roles to their execution callable
 AGENT_MAP = {
     "coder": run_coder,
     "reviewer": run_reviewer,
@@ -18,64 +18,40 @@ AGENT_MAP = {
 
 
 def run_multi_agent_system(user_query: str) -> dict:
-
-    pass
-
+    """Orchestrates dynamic multi-agent execution pipeline.
+    
+    1. Planner Agent builds structured PlanStep sequence via Instructor / Pydantic.
+    2. Sequentially executes agents, passing prior agent outputs as context.
+    3. Handles and isolates agent-level exceptions without halting pipeline.
+    4. Aggregates results into a unified structured audit response.
+    """
     plan = plan_task(user_query)
-
-    pass
-    pass
-
     steps = plan.get("steps", [])
 
     results: List[AgentOutput] = []
     previous_output = ""
 
     for idx, step in enumerate(steps):
-
         agent_name = step.get("agent", "coder")
         tools = step.get("tools", [])
         instruction = step.get("instruction", user_query)
 
-        pass
-        pass
-        pass
-        pass
-        pass
-        pass
-
         agent_fn = AGENT_MAP.get(agent_name)
-
         if not agent_fn:
-            pass
             continue
 
         try:
-
+            # First agent (coder) initiates; subsequent agents consume previous outputs
             if agent_name == "coder":
-                result = agent_fn(
-                    instruction,
-                    tools
-                )
-
+                result = agent_fn(instruction, tools)
             else:
-                result = agent_fn(
-                    instruction,
-                    tools,
-                    previous_output
-                )
+                result = agent_fn(instruction, tools, previous_output)
 
             previous_output = result.output
-
             results.append(result)
 
-            pass
-
         except Exception as e:
-
-            pass
-            pass
-
+            # Graceful error isolation: record failure state without crashing orchestrator
             results.append(
                 AgentOutput(
                     agent=agent_name,

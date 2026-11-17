@@ -3,7 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { RepoManager } from "./components/RepoManager";
 import { ChatWindow } from "./components/ChatWindow";
 import { ObservabilityDashboard } from "./components/ObservabilityDashboard";
-import { fetchRepos } from "./utils/api";
+import { fetchRepos, fetchActiveRepo } from "./utils/api";
 
 function App() {
   const [activeMode, setActiveMode] = useState<string>("ask");
@@ -17,13 +17,17 @@ function App() {
   // Function to load and determine active repository details
   const updateActiveRepo = async () => {
     try {
-      const repos = await fetchRepos();
-      const repoNames = Object.keys(repos);
-      if (repoNames.length > 0) {
-        // Find the last added repo in the registry
-        setActiveRepoName(repoNames[repoNames.length - 1]);
+      const active = await fetchActiveRepo().catch(() => null);
+      if (active && active.name) {
+        setActiveRepoName(active.name);
       } else {
-        setActiveRepoName("No active repo");
+        const repos = await fetchRepos();
+        const repoNames = Object.keys(repos);
+        if (repoNames.length > 0) {
+          setActiveRepoName(repoNames[0]);
+        } else {
+          setActiveRepoName("No active repo");
+        }
       }
     } catch (e) {
       console.warn("Failed to check active repos:", e);

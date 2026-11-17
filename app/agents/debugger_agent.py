@@ -24,17 +24,29 @@ def run_debugger(instruction: str, tools: list, previous_output: str = "") -> Ag
             context += f"\n[{tool_name}]:\n{result}\n"
             tools_used.append(tool_name)
 
-    prompt = f"""
-You are an expert debugger.
-Previous agent output:
+    prompt = f"""You are an elite Software Debugger and Systems Reliability Engineer.
+
+Analyze the implementation, previous reviewer critique, and codebase context below to eliminate bugs.
+
+Previous Agent Outputs & Review:
 {previous_output}
 
-Context:
+Codebase Context:
 {context}
 
-Task: {instruction}
+Debugging Objective:
+{instruction}
 
-Identify issues and provide fixed code with explanation.
+Structure your debugging report with these exact markdown sections:
+### 🐛 Root Cause Analysis
+- Exact breakdown of why the bug, runtime error, or bottleneck occurs.
+
+### ⚠️ Edge Cases & Failure Modes
+- Potential unhandled exceptions, race conditions, or null-pointer edge cases.
+
+### 🔧 Production-Ready Verified Fix
+- Complete, self-contained, drop-in replacement code block in ```python.
+- Explaining key changes made to guarantee correctness.
 """
     output = get_llm_response(prompt)
     return AgentOutput(

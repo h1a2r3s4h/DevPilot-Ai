@@ -3,9 +3,15 @@ from sentence_transformers import CrossEncoder
 
 class Reranker:
     def __init__(self):
-        self.model = CrossEncoder(
-            "cross-encoder/ms-marco-MiniLM-L-6-v2"
-        )
+        self._model = None
+
+    @property
+    def model(self):
+        if self._model is None:
+            self._model = CrossEncoder(
+                "cross-encoder/ms-marco-MiniLM-L-6-v2"
+            )
+        return self._model
 
     def rerank(
         self,
