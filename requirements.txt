@@ -18,7 +18,7 @@ torch
 faiss-cpu
 transformers==4.46.3
 sentence-transformers==3.1.1
-numpy==2.3.5
+numpy>=1.24.0,<2.3.0
 
 # Agents
 crewai==1.7.2
