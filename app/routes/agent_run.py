@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from app.core.limiter import limiter
 from app.agents.orchestrator import run_multi_agent_system
+from app.agents.planner_agent import plan_task
 from app.core.observability import metrics_tracker, log_tracker, trace_tracker
 
 from app.core.guardrails import guardrails
@@ -15,6 +16,29 @@ class AgentRequest(BaseModel):
     query: str
     user_id: str = "default_user"
     session_id: str = "default_session"
+
+@router.post("/agent/plan")
+def get_agent_plan(body: AgentRequest):
+    """Inspect or preview the planned execution steps prior to full execution."""
+    guard_check = guardrails.inspect_prompt(body.query)
+    if not guard_check.is_safe:
+        return {
+            "query": body.query,
+            "steps": [],
+            "error": f"Security Guardrail: {guard_check.reason}"
+        }
+    try:
+        plan = plan_task(body.query)
+        return {
+            "query": body.query,
+            "steps": plan.get("steps", [])
+        }
+    except Exception as e:
+        return {
+            "query": body.query,
+            "steps": [],
+            "error": str(e)
+        }
 
 @router.post("/agent/run")
 def run_agent(
@@ -94,6 +118,8 @@ def run_agent_stream(
                     "agent": step["agent"],
                     "status": step["status"],
                     "output": step["output"],
+                    "tools_used": step.get("tools_used", []),
+                    "next_agent": step.get("next_agent", None),
                 }
                 yield (
                     f"data: "

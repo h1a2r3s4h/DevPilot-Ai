@@ -29,6 +29,23 @@ def run_multi_agent_system(user_query: str) -> dict:
     steps = plan.get("steps", [])
 
     results: List[AgentOutput] = []
+
+    # Record Planner output as first step in audit trail
+    planner_summary = f"Architected execution plan with {len(steps)} steps:\n" + "\n".join([
+        f"{i+1}. Agent: `{s.get('agent', 'coder')}` | Tools: {s.get('tools', [])} | Task: {s.get('instruction', '')}"
+        for i, s in enumerate(steps)
+    ])
+    results.append(
+        AgentOutput(
+            agent="planner",
+            status="success",
+            output=planner_summary,
+            tools_used=["planner_schema"],
+            next_agent=steps[0].get("agent", "coder") if steps else None,
+            confidence=1.0
+        )
+    )
+
     previous_output = ""
 
     for idx, step in enumerate(steps):
@@ -61,6 +78,48 @@ def run_multi_agent_system(user_query: str) -> dict:
                     next_agent=None,
                 )
             )
+
+    # -------------------------------------------------------------
+    # 🔄 Autonomous Self-Healing Feedback Loop
+    # If the executor fails or catches a runtime error/traceback,
+    # trigger closed-loop self-correction between Debugger & Executor
+    # -------------------------------------------------------------
+    max_self_heal_iterations = 2
+    heal_count = 0
+
+    while heal_count < max_self_heal_iterations:
+        last_result = results[-1] if results else None
+        if not last_result:
+            break
+
+        is_failure = (
+            last_result.status == "error"
+            or "❌ Error" in last_result.output
+            or "Traceback (most recent call last)" in last_result.output
+            or "SyntaxError" in last_result.output
+            or "ModuleNotFoundError" in last_result.output
+        )
+
+        if not is_failure:
+            break
+
+        heal_count += 1
+        heal_prompt = (
+            f"AUTONOMOUS REPAIR CYCLE #{heal_count}:\n"
+            f"Execution failed with the following traceback/error:\n{last_result.output}\n\n"
+            f"Original task: {user_query}\n"
+            f"Diagnose the root cause, fix syntax or missing dependencies, and provide clean, working, verified Python code."
+        )
+
+        # 1. Dispatch to Debugger to find root cause and generate fixed code
+        debugger_fix = run_debugger(heal_prompt, ["codebase_search"], previous_output=last_result.output)
+        debugger_fix.agent = f"debugger (self-heal #{heal_count})"
+        results.append(debugger_fix)
+
+        # 2. Re-dispatch to Executor to verify if the fix runs cleanly
+        retest_executor = run_executor(heal_prompt, ["code_executor"], previous_output=debugger_fix.output)
+        retest_executor.agent = f"executor (verify #{heal_count})"
+        results.append(retest_executor)
 
     return {
         "query": user_query,

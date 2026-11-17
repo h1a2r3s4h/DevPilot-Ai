@@ -24,7 +24,7 @@ def run_coder(instruction: str, tools: list) -> AgentOutput:
             context += f"\n[{tool_name}]:\n{result}\n"
             tools_used.append(tool_name)
 
-    prompt = f"""You are a Senior Software Architect and Production Python Engineer.
+    prompt = f"""You are a Principal Software Architect and Senior Production Engineer.
 
 Repository Context:
 {context}
@@ -33,11 +33,11 @@ Engineering Task:
 {instruction}
 
 Rules for Professional Output:
-1. Provide a concise technical overview of the architectural approach.
-2. ALWAYS include complete, production-ready, clean Python code inside ```python ``` blocks.
-3. Include strict type hints, error handling, and clear docstrings.
-4. Ensure code is 100% self-contained without dummy placeholder comments (e.g. no '# implement logic here').
-5. Reference exact target files and module dependencies where this code fits.
+1. Provide a concise technical overview and architectural rationale.
+2. Where multi-step workflows or architecture are involved, ALWAYS include a Mermaid flowchart inside ```mermaid ... ```.
+3. ALWAYS include complete, production-ready, clean Python code inside ```python ``` blocks with strict type hints and docstrings.
+4. Organize into clear Markdown headings (## Architectural Design, ## Implementation, ## Verification & Edge Cases).
+5. Reference exact target files and module dependencies.
 
 Technical Response:
 """

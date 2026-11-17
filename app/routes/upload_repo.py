@@ -41,7 +41,22 @@ SUPPORTED_EXT = (
 )
 
 # Folders to skip during indexing to avoid searching junk or huge dependency files
-EXCLUDED_DIRS = {"venv", ".venv", "node_modules", "__pycache__", ".git", ".mypy_cache"}
+EXCLUDED_DIRS = {
+    "venv", 
+    ".venv", 
+    "node_modules", 
+    "__pycache__", 
+    ".git", 
+    ".mypy_cache", 
+    "dist", 
+    "build", 
+    ".vite", 
+    ".gemini", 
+    "data", 
+    "brain",
+    ".idea",
+    ".vscode"
+}
 
 # Massive lockfiles, bundles, or minified files to skip during indexing
 EXCLUDED_FILES = {
@@ -251,6 +266,71 @@ def get_active_repo():
 @router.get("/repos")
 def list_repos():
     return load_repos()
+
+# Endpoint: List all registered repositories with detailed metadata
+@router.get("/repos/details")
+def get_repos_details():
+    repos = load_repos()
+    active = load_active_repo()
+    active_path = active.get("path") if active else None
+    
+    details = []
+    for name, path in repos.items():
+        exists = os.path.exists(path)
+        file_count = 0
+        total_size_bytes = 0
+        if exists and os.path.isdir(path):
+            try:
+                for root, dirs, files in os.walk(path):
+                    dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+                    for f in files:
+                        if not is_ignored_file(f) and f.endswith(SUPPORTED_EXT):
+                            file_count += 1
+                            try:
+                                total_size_bytes += os.path.getsize(os.path.join(root, f))
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+        
+        is_active = (path == active_path)
+        chunks_count = len(retriever.vector.store.texts) if is_active else 0
+        
+        details.append({
+            "name": name,
+            "path": path,
+            "exists": exists,
+            "file_count": file_count,
+            "size_kb": round(total_size_bytes / 1024, 1),
+            "chunks_count": chunks_count,
+            "is_active": is_active,
+        })
+    return {"repositories": details, "total": len(details)}
+
+# Endpoint: Delete a registered repository
+@router.delete("/repos/{name}")
+def delete_repo(name: str):
+    repos = load_repos()
+    if name not in repos:
+        return JSONResponse(status_code=404, content={"error": f"Repository '{name}' not found."})
+    
+    deleted_path = repos.pop(name)
+    with open(REPO_REGISTRY, "w") as f:
+        json.dump(repos, f, indent=2)
+    
+    # If the deleted repo was active, switch active repo to remaining or clear
+    active = load_active_repo()
+    if active and (active.get("name") == name or active.get("path") == deleted_path):
+        if repos:
+            first_name = list(repos.keys())[0]
+            save_active_repo(first_name, repos[first_name])
+            retriever.switch_repo(repos[first_name])
+        else:
+            if os.path.exists(ACTIVE_REPO_FILE):
+                os.remove(ACTIVE_REPO_FILE)
+            retriever.clear()
+            
+    return {"message": f"Repository '{name}' removed from registry.", "remaining": len(repos)}
 
 # Endpoint: Upload and index a local repository path
 @router.post("/upload-repo")

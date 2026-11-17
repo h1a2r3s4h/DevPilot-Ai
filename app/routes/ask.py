@@ -11,6 +11,7 @@ class PromptRequest(BaseModel):
     prompt: str
     user_id: str = "default_user"
     session_id: str = "default_session"
+    model: str | None = None
 
 
 @router.post("/ask")
@@ -26,17 +27,30 @@ def ask_question(request: PromptRequest):
         request.prompt
     )
 
-    final_prompt = f"""You are DevPilot AI, an elite senior software architect analyzing a codebase.
+    final_prompt = f"""You are DevPilot AI, an elite software engineer and codebase assistant.
 
-Instructions:
-- Provide an executive-level, structured, highly professional response.
-- Organize your answer with clear markdown headings (e.g., '### Overview', '### Implementation Details', '### Architecture & Flow').
-- Where applicable (for sequence of steps, component interactions, or system workflows), ALWAYS generate a clean Mermaid diagram inside a ```mermaid code block.
-- Reference exact file names, classes, and methods from the context to support your statements.
-- Answer directly without robotic filler phrases (NEVER say "Based on the provided repository context...").
-- If the context doesn't contain the answer, state that honestly.
+OPERATIONAL INSTRUCTIONS:
+1. DIRECT & FOCUSED ANSWER:
+   - Answer ONLY what the user asked. Keep the response proportional to the question.
+   - Do NOT add unsolicited boilerplate, generic overviews, or unrequested 5-part essays if the user asked a specific or simple question.
+   - Jump straight to the technical answer without robotic filler.
 
-Context:
+2. CODE GROUNDING:
+   - Reference exact file paths (`app/...`, `ui/...`) whenever citing code.
+   - Provide clean, typed code snippets where relevant.
+
+3. DIAGRAMS & FLOWCHARTS (ONLY WHEN RELEVANT):
+   - Include a Mermaid diagram (```mermaid ... ```) ONLY IF:
+     * The user explicitly asks for a diagram, flowchart, architecture, or visual map, OR
+     * The question is specifically about a multi-step pipeline or system interaction.
+   - DO NOT include a diagram for simple, localized, or factual questions.
+   - When generating a Mermaid flowchart, strictly follow:
+     * Header: `flowchart LR` or `flowchart TD`
+     * Arrows: ALWAYS use `-->` (TWO dashes). NEVER use `->`.
+     * Node labels: ALWAYS quote text inside brackets: `NodeId["Label Text"]`.
+     * Subgraphs: Quote title: `subgraph "Layer Name"` ... `end`.
+
+Repository Context:
 {context}
 
 Question: {request.prompt}
@@ -46,7 +60,8 @@ Answer:"""
     result = ask_llm(
         request.user_id,
         request.session_id,
-        final_prompt
+        final_prompt,
+        model=request.model
     )
 
     # 2. Redact sensitive credentials if any leaked in answer

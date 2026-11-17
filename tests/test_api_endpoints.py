@@ -71,3 +71,31 @@ def test_diff_generator():
     assert "--- a/test.py" in diff
     assert "+++ b/test.py" in diff
     assert "+def new():" in diff
+
+def test_self_healing_agent_output_schema():
+    """Verify AgentOutput schema supports self-healing error states and iteration metadata."""
+    from app.agents.agent_output import AgentOutput
+    err_out = AgentOutput(
+        agent="executor",
+        status="error",
+        output="❌ Error: division by zero",
+        tools_used=["code_executor"]
+    )
+    assert err_out.status == "error"
+    assert "❌ Error" in err_out.output
+
+    healed_out = AgentOutput(
+        agent="debugger (self-heal #1)",
+        status="success",
+        output="Fixed division by zero",
+        tools_used=["codebase_search"]
+    )
+    assert "self-heal" in healed_out.agent
+    assert healed_out.status == "success"
+
+def test_multi_model_stream_request_schema():
+    """Verify stream request schema supports dynamic model specification."""
+    from app.routes.stream import StreamRequest
+    req = StreamRequest(prompt="test", model="deepseek/deepseek-r1:free")
+    assert req.model == "deepseek/deepseek-r1:free"
+    assert req.prompt == "test"

@@ -4,6 +4,16 @@ export interface RepoRegistry {
   [name: string]: string;
 }
 
+export interface RepoDetail {
+  name: string;
+  path: string;
+  exists: boolean;
+  file_count: number;
+  size_kb: number;
+  chunks_count: number;
+  is_active: boolean;
+}
+
 export interface IndexResponse {
   message: string;
   chunks_added: number;
@@ -12,8 +22,10 @@ export interface IndexResponse {
 
 export interface AgentStep {
   agent: string;
-  status: "success" | "running" | "failed";
+  status: "success" | "running" | "failed" | "error" | "needs_review";
   output: string;
+  tools_used?: string[];
+  next_agent?: string | null;
 }
 
 export interface ActiveRepoResponse {
@@ -21,11 +33,28 @@ export interface ActiveRepoResponse {
   path: string;
 }
 
-// Fetch all indexed repositories
+// Fetch all indexed repositories dictionary
 export async function fetchRepos(): Promise<RepoRegistry> {
   const res = await fetch(`${API_BASE}/repos`);
   if (!res.ok) throw new Error("Failed to fetch repositories");
   return res.json();
+}
+
+// Fetch detailed metadata for all registered repositories
+export async function fetchReposDetails(): Promise<{ repositories: RepoDetail[]; total: number }> {
+  const res = await fetch(`${API_BASE}/repos/details`);
+  if (!res.ok) throw new Error("Failed to fetch repository details");
+  return res.json();
+}
+
+// Delete a repository from registry
+export async function deleteRepo(name: string): Promise<{ message: string; remaining: number }> {
+  const res = await fetch(`${API_BASE}/repos/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+  const data = await res.json().catch(() => ({ error: res.statusText }));
+  if (!res.ok) throw new Error(data.error || `Failed to delete repository (HTTP ${res.status})`);
+  return data;
 }
 
 // Fetch currently active repository details
@@ -71,6 +100,17 @@ export async function cloneAndIndexGithub(url: string): Promise<IndexResponse> {
   return data;
 }
 
+// Preview Multi-Agent Execution Plan
+export async function fetchAgentPlan(query: string): Promise<{ query: string; steps: any[]; error?: string }> {
+  const res = await fetch(`${API_BASE}/agent/plan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  if (!res.ok) throw new Error("Failed to generate execution plan");
+  return res.json();
+}
+
 // Session Management for isolated conversation contexts
 export function getOrCreateSessionId(): string {
   try {
@@ -95,12 +135,14 @@ export function resetSessionId(): string {
   }
 }
 
-// Stream Ask/RAG response
+// Stream Ask/RAG response with AbortSignal support
 export async function streamAsk(
   prompt: string,
   onToken: (token: string) => void,
   onError: (err: any) => void,
-  sessionId?: string
+  sessionId?: string,
+  signal?: AbortSignal,
+  model?: string
 ): Promise<void> {
   try {
     const session_id = sessionId || getOrCreateSessionId();
@@ -110,8 +152,10 @@ export async function streamAsk(
       body: JSON.stringify({ 
         prompt,
         user_id: "default_user",
-        session_id
+        session_id,
+        model: model || undefined
       }),
+      signal
     });
 
     if (!response.ok) {
@@ -146,24 +190,28 @@ export async function streamAsk(
           try {
             const token = JSON.parse(rawPayload);
             onToken(token);
-          } catch (e) {
+          } catch {
             onToken(rawPayload);
           }
         }
       }
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      return; // Gracefully stopped by user
+    }
     onError(error);
   }
 }
 
-// Stream Agent Run execution
+// Stream Agent Run execution with AbortSignal support
 export async function streamAgentRun(
   query: string,
   onStep: (step: AgentStep) => void,
   onDone: () => void,
   onError: (err: any) => void,
-  sessionId?: string
+  sessionId?: string,
+  signal?: AbortSignal
 ): Promise<void> {
   try {
     const session_id = sessionId || getOrCreateSessionId();
@@ -175,6 +223,7 @@ export async function streamAgentRun(
         user_id: "default_user",
         session_id
       }),
+      signal
     });
 
     if (!response.ok) {
@@ -216,7 +265,11 @@ export async function streamAgentRun(
         }
       }
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      onDone();
+      return;
+    }
     onError(error);
   }
 }
@@ -266,6 +319,7 @@ export interface ObservabilityOverview {
       avg: number;
       p50: number;
       p95: number;
+      p99?: number;
     };
     status_codes: Record<string, number>;
     top_routes: Record<string, number>;
@@ -340,7 +394,7 @@ export async function fetchObservabilityOverview(): Promise<ObservabilityOvervie
 
 export async function fetchObservabilityLogs(level?: string, search?: string, limit = 100): Promise<SystemLog[]> {
   const params = new URLSearchParams();
-  if (level) params.append("level", level);
+  if (level && level !== "ALL") params.append("level", level);
   if (search) params.append("search", search);
   params.append("limit", limit.toString());
 
@@ -361,3 +415,21 @@ export async function clearObservabilityLogs(): Promise<void> {
   await fetch(`${API_BASE}/api/observability/logs/clear`, { method: "POST" });
 }
 
+export interface FileContentResponse {
+  file_path: string;
+  filename: string;
+  content: string;
+  lines: number;
+  language: string;
+  size_bytes: number;
+}
+
+export async function fetchFileContent(filePath: string): Promise<FileContentResponse> {
+  const params = new URLSearchParams({ file_path: filePath });
+  const res = await fetch(`${API_BASE}/api/diff/file-content?${params.toString()}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to read file ${filePath}`);
+  }
+  return res.json();
+}

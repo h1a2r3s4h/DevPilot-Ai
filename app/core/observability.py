@@ -83,6 +83,7 @@ class MetricsTracker:
             sorted_lats = sorted(lats) if lats else [0.0]
             p50 = round(sorted_lats[int(len(sorted_lats) * 0.50)], 2)
             p95 = round(sorted_lats[min(int(len(sorted_lats) * 0.95), len(sorted_lats) - 1)], 2)
+            p99 = round(sorted_lats[min(int(len(sorted_lats) * 0.99), len(sorted_lats) - 1)], 2)
             
             rag_lats = list(self.rag_latencies)
             avg_rag_lat = round(sum(rag_lats) / len(rag_lats), 2) if rag_lats else 0.0
@@ -101,6 +102,7 @@ class MetricsTracker:
                     "avg": avg_lat,
                     "p50": p50,
                     "p95": p95,
+                    "p99": p99,
                 },
                 "status_codes": self.status_codes,
                 "top_routes": dict(sorted(self.route_hits.items(), key=lambda x: x[1], reverse=True)[:5]),

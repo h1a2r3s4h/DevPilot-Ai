@@ -9,7 +9,7 @@ API_KEY = os.getenv("OPENROUTER_API_KEY")
 memory_service = MemoryService()
 
 
-def ask_llm(user_id: str, session_id: str, user_query: str):
+def ask_llm(user_id: str, session_id: str, user_query: str, model: str | None = None):
     url = "https://openrouter.ai/api/v1/chat/completions"
 
     # 🔥 1. GET MEMORY CONTEXT
@@ -51,7 +51,7 @@ User Query:
     }
 
     data = {
-        "model": "openrouter/free",
+        "model": model or "openrouter/free",
         "messages": [
             {"role": "user", "content": enhanced_prompt}
         ]

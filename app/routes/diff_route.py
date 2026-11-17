@@ -74,3 +74,37 @@ def apply_diff(request: ApplyDiffRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to apply changes: {str(e)}")
+
+@router.get("/file-content")
+def get_file_content(file_path: str):
+    """Retrieve full content of a workspace file for the File Peek Drawer."""
+    clean_path = file_path.strip().lstrip("/")
+    abs_path = os.path.abspath(clean_path)
+    
+    if not os.path.exists(abs_path):
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        candidate = os.path.join(project_root, clean_path)
+        if os.path.exists(candidate):
+            abs_path = candidate
+
+    if not os.path.exists(abs_path) or not os.path.isfile(abs_path):
+        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+
+    try:
+        with open(abs_path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+        
+        lines_count = len(content.splitlines())
+        filename = os.path.basename(abs_path)
+        ext = os.path.splitext(filename)[1].lstrip(".") or "txt"
+
+        return {
+            "file_path": file_path,
+            "filename": filename,
+            "content": content,
+            "lines": lines_count,
+            "language": ext,
+            "size_bytes": os.path.getsize(abs_path)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")

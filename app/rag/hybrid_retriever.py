@@ -69,6 +69,10 @@ class HybridRetriever:
         if cached_results:
             return cached_results
 
+        # Fast exit if store is completely empty
+        if not self.vector.store.texts and not self.bm25.corpus:
+            return []
+
         # 2. Fetch top-k keyword search results (BM25)
         bm25_results = self.bm25.search(
             query,

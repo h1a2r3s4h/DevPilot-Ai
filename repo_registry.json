@@ -1,11 +1,4 @@
 {
-  "fastapi": "https://github.com/tiangolo/fastapi",
-  "flask-boilerplate": "https://github.com/realpython/flask-boilerplate",
-  "gitpal": "https://github.com/h1a2r3s4h/gitpal",
-  "SkillForge": "https://github.com/h1a2r3s4h/SkillForge",
-  "DevPilot-Ai": "/app/data/cloned_repos/DevPilot-Ai",
-  "assignment": "https://github.com/h1a2r3s4h/assignment",
-  "devpilot-ai": "/app",
-  "VoxHire---Voice-agent": "https://github.com/h1a2r3s4h/VoxHire---Voice-agent",
-  "app": "/app"
+  "devpilot-ai": "/Users/harshitgangwar/Desktop/2.WEBDEV/devpilot-ai",
+  "Honey_Website": "/app/data/cloned_repos/Honey_Website"
 }

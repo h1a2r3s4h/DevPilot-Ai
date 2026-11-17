@@ -8,6 +8,9 @@ _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _data_storage = os.path.join(_project_root, "data", "app_storage")
 os.makedirs(_data_storage, exist_ok=True)
 os.environ.setdefault("CREWAI_STORAGE_DIR", _data_storage)
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ["LANGSMITH_TRACING"] = "false"
 
 # Ensure CrewAI local storage & cloud telemetry token never trigger macOS permission errors
 try:
