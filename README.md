@@ -14,7 +14,7 @@
 
 <br/>
 
-[Overview](#-overview) • [Why DevPilot AI](#-why-devpilot-ai-vs-competitors) • [System Architecture](#-system-architecture) • [End-to-End Flow](#-end-to-end-execution-flow) • [Core Capabilities](#-core-capabilities) • [Tech Stack](#-tech-stack) • [Quick Start](#-quick-start) • [Configuration](#-environment-configuration) • [API Reference](#-api-reference) • [Benchmarks](#-rag-benchmarks) • [FAQ](#-frequently-asked-questions)
+[Overview](#-overview) • [Why DevPilot AI](#-why-devpilot-ai-vs-competitors) • [Architecture & Flow](#-system-architecture--end-to-end-flow) • [Core Capabilities](#-core-capabilities) • [Tech Stack](#-tech-stack) • [Quick Start](#-quick-start) • [Configuration](#-environment-configuration) • [API Reference](#-api-reference) • [Benchmarks](#-rag-benchmarks) • [FAQ](#-frequently-asked-questions)
 
 </div>
 
