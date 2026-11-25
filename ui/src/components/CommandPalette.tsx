@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { 
-  Search, 
-  MessageSquare, 
-  Bot, 
-  Database, 
-  Activity, 
-  Settings, 
-  PlusCircle, 
+import {
+  Search,
+  MessageSquare,
+  Bot,
+  Database,
+  Activity,
+  Settings,
+  PlusCircle,
   ArrowRight,
-  GitBranch
+  GitBranch,
+  GitPullRequest
 } from "lucide-react";
 import type { RepoRegistry } from "../utils/api";
 
@@ -20,6 +21,7 @@ interface CommandPaletteProps {
   onSwitchRepo: (path: string) => void;
   onNewChat: () => void;
   onOpenSettings: () => void;
+  onOpenGitModal?: () => void;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -30,6 +32,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onSwitchRepo,
   onNewChat,
   onOpenSettings,
+  onOpenGitModal,
 }) => {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -82,6 +85,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       action: () => { onNewChat(); onClose(); },
     },
     {
+      id: "action-git-pr",
+      title: "Git: Create Branch & Pull Request",
+      category: "Git & Release",
+      icon: <GitPullRequest size={15} className="text-cyan-400" />,
+      action: () => { if (onOpenGitModal) onOpenGitModal(); onClose(); },
+    },
+    {
       id: "action-settings",
       title: "Platform Preferences & Settings",
       category: "Actions",
@@ -123,11 +133,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-24 p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
     >
-      <div 
+      <div
         className="w-full max-w-xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
@@ -165,11 +175,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   key={item.id}
                   onClick={item.action}
                   onMouseEnter={() => setSelectedIndex(idx)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left text-xs transition-all ${
-                    isSelected
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left text-xs transition-all ${isSelected
                       ? "bg-cyan-500/10 text-cyan-200 border border-cyan-500/20 font-medium"
                       : "text-zinc-300 hover:bg-zinc-900/60 border border-transparent"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="shrink-0">{item.icon}</div>

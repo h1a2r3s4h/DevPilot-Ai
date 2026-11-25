@@ -433,3 +433,154 @@ export async function fetchFileContent(filePath: string): Promise<FileContentRes
   }
   return res.json();
 }
+
+// -------------------------------------------------------------
+// Git & Automated PR Workflow
+// -------------------------------------------------------------
+
+export interface GitStatusResponse {
+  is_repo: boolean;
+  repo_path: string;
+  current_branch: string;
+  branches: string[];
+  modified_files: string[];
+  untracked_files: string[];
+  staged_files: string[];
+  is_clean: boolean;
+  remote_url: string | null;
+  github_repo: string | null;
+}
+
+export interface GitBranchResponse {
+  success: boolean;
+  branch: string;
+  message: string;
+}
+
+export interface GitCommitResponse {
+  success: boolean;
+  commit_hash?: string;
+  message: string;
+}
+
+export interface GitPrDraftResponse {
+  branch_name: string;
+  commit_message: string;
+  pr_title: string;
+  pr_body: string;
+}
+
+export interface GitCreatePrResponse {
+  success: boolean;
+  github_repo: string;
+  web_compare_url: string;
+  api_result?: {
+    success: boolean;
+    pr_url?: string;
+    pr_number?: number;
+    state?: string;
+    error?: string;
+  };
+}
+
+export async function fetchGitStatus(repoPath?: string): Promise<GitStatusResponse> {
+  const params = repoPath ? `?repo_path=${encodeURIComponent(repoPath)}` : "";
+  const res = await fetch(`${API_BASE}/api/git/status${params}`);
+  if (!res.ok) throw new Error("Failed to fetch repository Git status");
+  return res.json();
+}
+
+export async function createGitBranch(
+  branchName: string,
+  baseBranch?: string,
+  repoPath?: string
+): Promise<GitBranchResponse> {
+  const res = await fetch(`${API_BASE}/api/git/branch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      branch_name: branchName,
+      base_branch: baseBranch,
+      repo_path: repoPath,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || "Failed to create and checkout branch");
+  return data;
+}
+
+export async function checkoutGitBranch(
+  branchName: string,
+  repoPath?: string
+): Promise<{ success: boolean; branch: string; message: string }> {
+  const res = await fetch(`${API_BASE}/api/git/checkout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      branch_name: branchName,
+      repo_path: repoPath,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || "Failed to switch branch");
+  return data;
+}
+
+export async function commitGitChanges(
+  message: string,
+  files?: string[],
+  repoPath?: string
+): Promise<GitCommitResponse> {
+  const res = await fetch(`${API_BASE}/api/git/commit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message,
+      files,
+      repo_path: repoPath,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || "Failed to commit changes");
+  return data;
+}
+
+export async function generateGitPrDraft(
+  diffText?: string,
+  taskDescription?: string,
+  titleHint?: string,
+  model?: string
+): Promise<GitPrDraftResponse> {
+  const res = await fetch(`${API_BASE}/api/git/draft-pr`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      diff_text: diffText || "",
+      task_description: taskDescription || "",
+      title_hint: titleHint || "",
+      model,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || "Failed to generate AI PR draft");
+  return data;
+}
+
+export async function createGitPr(payload: {
+  github_repo?: string;
+  base_branch?: string;
+  head_branch: string;
+  title: string;
+  body: string;
+  token?: string;
+  create_via_api?: boolean;
+}): Promise<GitCreatePrResponse> {
+  const res = await fetch(`${API_BASE}/api/git/create-pr`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || "Failed to generate GitHub PR");
+  return data;
+}

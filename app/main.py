@@ -44,6 +44,7 @@ from app.routes.agent_run import router as agent_run_router
 from app.routes.mcp_route import router as mcp_router
 from app.routes.execution_route import router as execution_router
 from app.routes.diff_route import router as diff_router
+from app.routes.git_route import router as git_router
 from app.routes.observability_route import router as observability_router
 from app.core.telemetry_middleware import TelemetryMiddleware
 from app.core.observability import log_tracker
@@ -106,4 +107,5 @@ app.include_router(agent_run_router)
 app.include_router(mcp_router)
 app.include_router(execution_router)
 app.include_router(diff_router)
+app.include_router(git_router)
 app.include_router(observability_router)

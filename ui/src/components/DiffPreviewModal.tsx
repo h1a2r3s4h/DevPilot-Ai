@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { previewDiff, applyDiff } from "../utils/api";
 import type { DiffPreviewResponse } from "../utils/api";
-import { Check, X, FileCode, Play, AlertCircle, RefreshCw, Copy, Download } from "lucide-react";
+import { Check, X, FileCode, Play, AlertCircle, RefreshCw, Copy, Download, GitPullRequest } from "lucide-react";
+import { GitBranchPrModal } from "./GitBranchPrModal";
 
 interface DiffPreviewModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const DiffPreviewModal: React.FC<DiffPreviewModalProps> = ({
   const [applying, setApplying] = useState(false);
   const [copiedPatch, setCopiedPatch] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isGitModalOpen, setIsGitModalOpen] = useState(false);
 
   const handleCopyPatch = () => {
     if (!diffData?.diff) return;
@@ -86,7 +88,7 @@ export const DiffPreviewModal: React.FC<DiffPreviewModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/75 backdrop-blur-md p-4 animate-fade-in">
       <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/90 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl text-zinc-900 dark:text-zinc-100 overflow-hidden animate-scale-in">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-900/90">
           <div className="flex items-center gap-2.5">
@@ -108,7 +110,7 @@ export const DiffPreviewModal: React.FC<DiffPreviewModalProps> = ({
 
         {/* Content Body */}
         <div className="p-6 flex-1 overflow-y-auto space-y-4">
-          
+
           {/* File path input */}
           <div className="flex items-center gap-3">
             <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 min-w-max font-mono">Target File:</label>
@@ -132,11 +134,10 @@ export const DiffPreviewModal: React.FC<DiffPreviewModalProps> = ({
           {/* Status Alert */}
           {statusMessage && (
             <div
-              className={`p-3 rounded-xl flex items-center gap-2 text-xs font-medium font-mono ${
-                statusMessage.type === "success"
+              className={`p-3 rounded-xl flex items-center gap-2 text-xs font-medium font-mono ${statusMessage.type === "success"
                   ? "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-300"
                   : "bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/40 text-rose-800 dark:text-rose-300"
-              }`}
+                }`}
             >
               {statusMessage.type === "success" ? (
                 <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -215,25 +216,44 @@ export const DiffPreviewModal: React.FC<DiffPreviewModalProps> = ({
           <div className="text-[11px] font-mono text-zinc-500 hidden sm:block">
             Use <code className="text-cyan-400 px-1.5 py-0.5 rounded bg-zinc-950 border border-zinc-800">git apply &lt;file&gt;.patch</code> to stage changes
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-mono text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors"
-            >
-              Close
-            </button>
-            <button
-              onClick={handleApply}
-              disabled={applying || !filePath.trim()}
-              className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-zinc-950 bg-cyan-500 hover:bg-cyan-400 rounded-xl shadow-md shadow-cyan-500/20 transition-all disabled:opacity-40"
-            >
-              {applying ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-              <span>Apply to Workspace File</span>
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-mono text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => setIsGitModalOpen(true)}
+                disabled={!filePath.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-cyan-300 hover:text-cyan-200 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 rounded-xl transition-all font-mono disabled:opacity-40"
+                title="Create isolated branch and open GitHub PR for these changes"
+              >
+                <GitPullRequest className="w-3.5 h-3.5" />
+                <span>Create Branch & PR</span>
+              </button>
+              <button
+                onClick={handleApply}
+                disabled={applying || !filePath.trim()}
+                className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-zinc-950 bg-cyan-500 hover:bg-cyan-400 rounded-xl shadow-md shadow-cyan-500/20 transition-all disabled:opacity-40"
+              >
+                {applying ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                <span>Apply to Workspace File</span>
+              </button>
+            </div>
           </div>
+
         </div>
 
+        {/* Embedded Git Branch & PR Automation Modal */}
+        <GitBranchPrModal
+          isOpen={isGitModalOpen}
+          onClose={() => setIsGitModalOpen(false)}
+          initialDiffText={diffData?.diff || proposedCode}
+          initialTitleHint={filePath ? `update ${filePath}` : "code change"}
+          initialTaskDescription={filePath ? `Proposed modification to ${filePath}` : "Code modification"}
+          stagedFiles={filePath ? [filePath] : []}
+        />
       </div>
-    </div>
-  );
+      );
 };

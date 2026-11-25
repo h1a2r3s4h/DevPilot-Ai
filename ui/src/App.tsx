@@ -6,9 +6,10 @@ import { RepoManager } from "./components/RepoManager";
 import { ObservabilityDashboard } from "./components/ObservabilityDashboard";
 import { CommandPalette } from "./components/CommandPalette";
 import { SettingsModal } from "./components/SettingsModal";
+import { GitBranchPrModal } from "./components/GitBranchPrModal";
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { fetchRepos, fetchActiveRepo, switchRepo, type RepoRegistry } from "./utils/api";
-import { Search, Settings } from "lucide-react";
+import { Search, Settings, GitPullRequest } from "lucide-react";
 
 function MainApp() {
   const [activeMode, setActiveMode] = useState<string>("ask");
@@ -19,6 +20,7 @@ function MainApp() {
   // Modals state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isGitModalOpen, setIsGitModalOpen] = useState<boolean>(false);
 
   const { toast } = useToast();
 
@@ -157,6 +159,16 @@ function MainApp() {
               </div>
             )}
 
+            {/* Git Branch & PR Automation Trigger */}
+            <button
+              onClick={() => setIsGitModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-950/40 to-zinc-900/80 hover:from-cyan-900/50 hover:to-zinc-800/80 border border-cyan-500/30 hover:border-cyan-400/60 text-xs font-mono text-cyan-300 transition-all shadow-sm"
+              title="Open Git Branch & PR Automation"
+            >
+              <GitPullRequest size={13} className="text-cyan-400" />
+              <span className="hidden sm:inline">Branch & PR</span>
+            </button>
+
             {/* Quick Settings Trigger */}
             <button
               onClick={() => setIsSettingsOpen(true)}
@@ -200,6 +212,7 @@ function MainApp() {
           setActiveMode("ask");
         }}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenGitModal={() => setIsGitModalOpen(true)}
       />
 
       {/* Global Settings Modal */}
@@ -207,6 +220,12 @@ function MainApp() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         activeRepo={activeRepoName}
+      />
+
+      {/* Global Git Branch & PR Automation Modal */}
+      <GitBranchPrModal
+        isOpen={isGitModalOpen}
+        onClose={() => setIsGitModalOpen(false)}
       />
     </div>
   );
