@@ -206,7 +206,7 @@ export const GitBranchPrModal: React.FC<GitBranchPrModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in select-none">
       <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl text-zinc-100 overflow-hidden relative">
-        
+
         {/* Glow ambient background lights */}
         <div className="absolute top-0 right-1/4 w-80 h-32 bg-cyan-500/10 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/4 w-80 h-32 bg-blue-500/10 blur-3xl pointer-events-none" />
@@ -274,17 +274,16 @@ export const GitBranchPrModal: React.FC<GitBranchPrModalProps> = ({
 
         {/* Content Body */}
         <div className="p-6 flex-1 overflow-y-auto space-y-5 text-xs font-sans relative z-10">
-          
+
           {/* Status Alert */}
           {statusAlert && (
             <div
-              className={`p-3.5 rounded-xl flex items-center gap-2.5 text-xs font-mono ${
-                statusAlert.type === "success"
+              className={`p-3.5 rounded-xl flex items-center gap-2.5 text-xs font-mono ${statusAlert.type === "success"
                   ? "bg-emerald-950/40 border border-emerald-500/40 text-emerald-300"
                   : statusAlert.type === "error"
-                  ? "bg-rose-950/40 border border-rose-500/40 text-rose-300"
-                  : "bg-cyan-950/40 border border-cyan-500/40 text-cyan-300"
-              }`}
+                    ? "bg-rose-950/40 border border-rose-500/40 text-rose-300"
+                    : "bg-cyan-950/40 border border-cyan-500/40 text-cyan-300"
+                }`}
             >
               {statusAlert.type === "success" ? (
                 <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
