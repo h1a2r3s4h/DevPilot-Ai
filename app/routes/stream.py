@@ -76,6 +76,10 @@ OPERATIONAL INSTRUCTIONS:
      * Header: `flowchart LR` or `flowchart TD`
      * Arrows: ALWAYS use `-->` (TWO dashes). NEVER use `->`.
      * Node labels: ALWAYS quote text inside brackets: `NodeId["Label Text"]`.
+     * Line breaks in labels: Use `<br/>` for multiple lines. NEVER use raw `\n` or newlines inside node text.
+     * Special characters: NEVER use backticks (`) or unescaped HTML tags (like <b>) inside labels.
+     * Single Diagram rule: Generate AT MOST ONE clean, valid Mermaid diagram. Do not repeat diagram blocks.
+     * No Meta-Commentary: NEVER write sentences explaining or acknowledging Mermaid rules (e.g. NEVER write "The diagram follows the required syntax...", "Here is the diagram syntax:", or cite flowchart rules in prose). Output only the diagram itself.
      * File paths: ALWAYS quote: `PathNode["/app/routes/stream.py"]`.
      * Subgraphs: Quote title: `subgraph "Layer Name"` ... `end`.
 

@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { 
-  Bot, 
   Play, 
   Square, 
   CheckCircle2, 
@@ -14,14 +13,16 @@ import {
   Copy, 
   Check, 
   Eye, 
-  Sparkles,
+  Workflow,
   Layers,
   Wrench,
-  ChevronRight
+  ChevronRight,
+  Mic,
+  MicOff
 } from "lucide-react";
 import { streamAgentRun, fetchAgentPlan, type AgentStep } from "../utils/api";
 import { DiffPreviewModal } from "./DiffPreviewModal";
-import { MermaidBlock } from "./MermaidBlock";
+import { MermaidBlock, hasActualDiagramContent } from "./MermaidBlock";
 import { useToast } from "./ui/Toast";
 
 interface AgentWorkspaceProps {
@@ -64,6 +65,74 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({ activeRepoName }
   const [previewPlan, setPreviewPlan] = useState<any[] | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+
+  // Speech Recognition State
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+    };
+  }, []);
+
+  const toggleVoiceInput = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      toast({
+        type: "error",
+        title: "Voice Unavailable",
+        description: "Your browser does not support speech recognition.",
+      });
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast({ type: "info", title: "Microphone Active", description: "Speak task description..." });
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = "";
+        for (let i = 0; i < event.results.length; ++i) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript) {
+          setTaskQuery(transcript);
+        }
+      };
+
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+  };
 
   // Timer for execution elapsed time
   useEffect(() => {
@@ -212,23 +281,23 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({ activeRepoName }
   const candidateCode = extractedCodeMatch ? extractedCodeMatch[1] : "";
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-zinc-950 overflow-hidden relative transition-colors duration-300 animate-fade-in">
+    <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden relative transition-colors duration-300 animate-fade-in">
       {/* Top Header */}
-      <div className="flex items-center justify-between px-6 py-3.5 border-b border-zinc-200 dark:border-zinc-900 bg-white/85 dark:bg-zinc-950/80 backdrop-blur-md z-10 shrink-0">
+      <div className="flex items-center justify-between px-6 py-3.5 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md z-10 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-2xs">
-              <Bot size={17} />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-cyan-400 shadow-2xs">
+              <Workflow size={16} className="text-cyan-400" />
             </div>
             <div>
-              <h1 className="font-heading font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                Multi-Agent Orchestration & Self-Healing Engine
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 text-cyan-700 dark:text-cyan-400">
-                  CREWAI & INSTRUCTOR
+              <h1 className="font-heading font-bold text-sm text-zinc-100 flex items-center gap-2">
+                Multi-Agent Synthesis Engine
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 font-medium">
+                  CLOSED-LOOP ARCHITECTURE
                 </span>
               </h1>
               <p className="text-[11px] text-zinc-500 font-mono">
-                Closed-Loop Planner → Coder → Reviewer → Debugger → Executor Pipeline
+                Sequential Pipeline: Planner → Coder → Reviewer → Debugger → Executor
               </p>
             </div>
           </div>
@@ -236,8 +305,8 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({ activeRepoName }
 
         <div className="flex items-center gap-3">
           {executing && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 text-xs font-mono text-cyan-700 dark:text-cyan-300 shadow-2xs">
-              <Clock size={13} className="animate-spin text-cyan-600 dark:text-cyan-400" />
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500/15 to-blue-500/10 border border-cyan-500/30 text-xs font-mono text-cyan-300 shadow-2xs">
+              <Clock size={13} className="animate-spin text-cyan-400" />
               <span>Elapsed: {elapsedSeconds}s</span>
             </div>
           )}
@@ -248,9 +317,9 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({ activeRepoName }
                 setDiffCode(candidateCode);
                 setIsDiffModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 hover:border-cyan-400 dark:hover:border-cyan-500/30 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all shadow-2xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 text-zinc-200 hover:border-cyan-500/40 hover:text-cyan-300 transition-all shadow-2xs"
             >
-              <FileCode size={13} className="text-cyan-600 dark:text-cyan-400" />
+              <FileCode size={13} className="text-cyan-400" />
               <span>Review Diff</span>
             </button>
           )}
@@ -260,23 +329,39 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({ activeRepoName }
       {/* Main Workspace Frame */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Column: Task Composer & Pipeline Timeline */}
-        <div className="w-1/2 border-r border-zinc-200 dark:border-zinc-900 flex flex-col p-6 overflow-y-auto gap-6 bg-slate-100/50 dark:bg-zinc-950/40">
+        <div className="w-1/2 border-r border-zinc-900 flex flex-col p-6 overflow-y-auto gap-6 bg-zinc-950/40">
           {/* Task Composer Box */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 p-4 space-y-3 shadow-sm dark:shadow-lg">
+          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-4 space-y-3 shadow-lg">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
-                <Sparkles size={14} className="text-cyan-600 dark:text-cyan-400" />
+              <label className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                <Terminal size={14} className="text-cyan-400" />
                 Engineering Task Description
               </label>
-              <button
-                type="button"
-                onClick={handlePreviewPlan}
-                disabled={executing || planLoading || !taskQuery.trim()}
-                className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 hover:text-cyan-600 dark:hover:text-cyan-400 flex items-center gap-1 disabled:opacity-40"
-              >
-                <Eye size={12} />
-                <span>{planLoading ? "Analyzing..." : "Preview Plan"}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  disabled={executing}
+                  className={`flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-lg border transition-all ${
+                    isListening
+                      ? "bg-rose-500/20 border-rose-500/50 text-rose-400 animate-pulse ring-1 ring-rose-500/30"
+                      : "text-zinc-400 hover:text-cyan-400 border-zinc-800 bg-zinc-900/60"
+                  }`}
+                  title={isListening ? "Listening... Click to stop" : "Speak task description (Voice to Text)"}
+                >
+                  {isListening ? <MicOff size={12} className="text-rose-400" /> : <Mic size={12} />}
+                  <span>{isListening ? "Listening..." : "Voice"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePreviewPlan}
+                  disabled={executing || planLoading || !taskQuery.trim()}
+                  className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 hover:text-cyan-600 dark:hover:text-cyan-400 flex items-center gap-1 disabled:opacity-40"
+                >
+                  <Eye size={12} />
+                  <span>{planLoading ? "Analyzing..." : "Preview Plan"}</span>
+                </button>
+              </div>
             </div>
 
             <textarea
@@ -322,7 +407,7 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({ activeRepoName }
                   <button
                     onClick={handleRun}
                     disabled={!taskQuery.trim()}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-30 disabled:hover:bg-cyan-500 text-zinc-950 text-xs font-semibold shadow-md transition-all"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 via-cyan-600 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-30 disabled:hover:from-cyan-600 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all border border-cyan-400/30 active:scale-95"
                   >
                     <Play size={13} className="fill-current" />
                     <span>Execute Multi-Agent</span>
@@ -602,15 +687,30 @@ export const AgentWorkspace: React.FC<AgentWorkspaceProps> = ({ activeRepoName }
                     const lang = match ? match[1].toLowerCase() : "code";
                     const content = String(children).replace(/\n$/, "");
 
+                    const isInline = !match && !content.includes("\n");
+
                     const isMermaid =
-                      lang === "mermaid" ||
-                      lang === "flowchart" ||
-                      lang === "graph" ||
-                      /^\s*(?:Mermaid\s+Syntax:\s*)?(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|journey|gitGraph)\b/i.test(content);
+                      !isInline &&
+                      (lang === "mermaid" ||
+                        lang === "flowchart" ||
+                        lang === "graph" ||
+                        (/^\s*(?:Mermaid\s+Syntax:\s*)?(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|journey|gitGraph)\b/i.test(content) &&
+                          hasActualDiagramContent(content)));
 
                     if (isMermaid) {
                       const cleanCode = content.replace(/^\s*Mermaid\s+Syntax:\s*/i, "");
+                      if (!hasActualDiagramContent(cleanCode)) {
+                        return null;
+                      }
                       return <MermaidBlock>{cleanCode}</MermaidBlock>;
+                    }
+
+                    if (isInline) {
+                      return (
+                        <code className="px-1.5 py-0.5 rounded bg-zinc-950 text-cyan-400 font-mono text-[11px] border border-zinc-800">
+                          {content}
+                        </code>
+                      );
                     }
 
                     return (

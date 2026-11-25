@@ -4,13 +4,12 @@ import remarkGfm from "remark-gfm";
 import { 
   Send, 
   User, 
-  Cpu, 
   Copy, 
   Check, 
   RefreshCw, 
   Square, 
   FileCode, 
-  Sparkles, 
+  Wrench,
   ShieldAlert, 
   Layers, 
   Workflow, 
@@ -20,13 +19,16 @@ import {
   GitBranch,
   ChevronDown,
   Download,
-  Eye
+  Eye,
+  Mic,
+  MicOff
 } from "lucide-react";
+import { DevPilotMark } from "./DevPilotMark";
 import { streamAsk, getOrCreateSessionId, resetSessionId, type RepoRegistry } from "../utils/api";
 import { DiffPreviewModal } from "./DiffPreviewModal";
 import { ConfirmModal } from "./ConfirmModal";
 import { useToast } from "./ui/Toast";
-import { MermaidBlock } from "./MermaidBlock";
+import { MermaidBlock, hasActualDiagramContent } from "./MermaidBlock";
 import { FilePeekDrawer } from "./FilePeekDrawer";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 
@@ -95,11 +97,11 @@ const CodeBlock: React.FC<{ children: string; className?: string; onDiffPreview:
 };
 
 export const AVAILABLE_MODELS = [
-  { id: "openrouter/free", name: "Auto Free Router", badge: "Smart Router", icon: "⚡" },
-  { id: "deepseek/deepseek-r1:free", name: "DeepSeek R1", badge: "Reasoning", icon: "🧠" },
-  { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B", badge: "General", icon: "🦙" },
-  { id: "google/gemini-2.0-flash-exp:free", name: "Gemini 2.0 Flash", badge: "Ultra Fast", icon: "✨" },
-  { id: "qwen/qwen-2.5-coder-32b-instruct:free", name: "Qwen 2.5 Coder", badge: "Code Expert", icon: "💻" },
+  { id: "openrouter/free", name: "Auto Router (Free)", badge: "Adaptive", provider: "OpenRouter" },
+  { id: "deepseek/deepseek-r1:free", name: "DeepSeek R1", badge: "Reasoning", provider: "DeepSeek" },
+  { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B", badge: "General", provider: "Meta" },
+  { id: "google/gemini-2.0-flash-exp:free", name: "Gemini 2.0 Flash", badge: "Fast", provider: "Google" },
+  { id: "qwen/qwen-2.5-coder-32b-instruct:free", name: "Qwen 2.5 Coder", badge: "Code", provider: "Alibaba" },
 ];
 
 export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
@@ -127,6 +129,98 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
   const [peekFilePath, setPeekFilePath] = useState<string | null>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashFilter, setSlashFilter] = useState("");
+
+  // Voice Input Speech Recognition state
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+    };
+  }, []);
+
+  const toggleVoiceInput = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      toast({
+        type: "error",
+        title: "Voice Input Unavailable",
+        description: "Your browser does not support the Web Speech API. Please try Chrome, Edge, or Safari.",
+      });
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast({
+          type: "info",
+          title: "Microphone Active",
+          description: "Listening... Speak your prompt now.",
+        });
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = "";
+        for (let i = 0; i < event.results.length; ++i) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript) {
+          setInput(transcript);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsListening(false);
+        if (event.error !== "no-speech" && event.error !== "aborted") {
+          toast({
+            type: "error",
+            title: "Microphone Notice",
+            description: `Voice input ended (${event.error}).`,
+          });
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err: any) {
+      console.error("Speech recognition startup error:", err);
+      setIsListening(false);
+      toast({
+        type: "error",
+        title: "Microphone Permission",
+        description: err.message || "Could not activate microphone.",
+      });
+    }
+  };
 
   const handleExportReport = () => {
     if (messages.length === 0) return;
@@ -403,16 +497,16 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
       title: "Refactoring & Clean Code",
       desc: "Find opportunities to optimize latency and modularity.",
       prompt: "Review the code quality, error handling, and potential performance bottlenecks across the repository, providing concrete recommendations.",
-      icon: <Sparkles size={15} className="text-sky-400" />,
+      icon: <Wrench size={15} className="text-sky-400" />,
     },
   ];
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-zinc-950 overflow-hidden relative transition-colors duration-300">
+    <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden relative transition-colors duration-300">
       {/* Top Workspace Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-zinc-200 dark:border-zinc-900 bg-white/85 dark:bg-zinc-950/80 backdrop-blur-md z-10 shrink-0 transition-colors duration-300">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-zinc-900/80 bg-zinc-950/70 backdrop-blur-xl z-10 shrink-0 transition-colors duration-300">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 font-mono shadow-2xs">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-zinc-900 to-zinc-900/70 border border-zinc-800 text-xs text-zinc-300 font-mono shadow-2xs">
             <GitBranch size={13} className="text-cyan-400" />
             <span className="text-zinc-500">Repo:</span>
             <span className="font-semibold text-zinc-100">{activeRepoName || "No active repo"}</span>
@@ -421,16 +515,16 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
           {/* Quick Repo Switcher Dropdown */}
           {Object.keys(repos).length > 1 && (
             <div className="relative group">
-              <button className="flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-200 px-2 py-1 rounded hover:bg-zinc-900 transition-colors">
+              <button className="flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-200 px-2 py-1 rounded-lg hover:bg-zinc-900/80 transition-colors">
                 <span>Switch</span>
                 <ChevronDown size={12} />
               </button>
-              <div className="absolute left-0 top-full mt-1 w-52 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl p-1 hidden group-hover:block z-50 animate-scale-in">
+              <div className="absolute left-0 top-full mt-1 w-52 bg-zinc-950/95 border border-zinc-800 rounded-xl shadow-2xl p-1.5 hidden group-hover:block z-50 animate-scale-in backdrop-blur-xl">
                 {Object.keys(repos).map((rName) => (
                   <button
                     key={rName}
                     onClick={() => onSwitchRepo(repos[rName])}
-                    className="w-full text-left px-3 py-1.5 text-xs font-mono text-zinc-300 hover:bg-zinc-900 rounded-lg truncate transition-colors"
+                    className="w-full text-left px-3 py-1.5 text-xs font-mono text-zinc-300 hover:bg-cyan-950/30 hover:text-cyan-300 rounded-lg truncate transition-colors"
                   >
                     {rName}
                   </button>
@@ -441,19 +535,17 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
 
           {/* Dynamic AI Model Selector Dropdown */}
           <div className="relative group">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-cyan-500/40 text-xs text-zinc-300 font-mono transition-all shadow-2xs">
-              <span className="text-cyan-400">
-                {AVAILABLE_MODELS.find(m => m.id === selectedModel)?.icon || "⚡"}
-              </span>
+            <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-zinc-900/90 to-zinc-950/90 border border-zinc-800 hover:border-cyan-500/40 text-xs text-zinc-300 font-mono transition-all shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
               <span className="text-zinc-500">Model:</span>
               <span className="font-semibold text-zinc-100 max-w-[130px] truncate">
-                {AVAILABLE_MODELS.find(m => m.id === selectedModel)?.name || "Auto Free Tier"}
+                {AVAILABLE_MODELS.find(m => m.id === selectedModel)?.name || "Auto Router"}
               </span>
               <ChevronDown size={12} className="text-zinc-500 group-hover:text-cyan-400 transition-colors" />
             </button>
-            <div className="absolute left-0 top-full mt-1.5 w-64 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl p-1.5 hidden group-hover:block z-50 animate-scale-in">
+            <div className="absolute left-0 top-full mt-1.5 w-64 bg-zinc-950/95 border border-zinc-800 rounded-xl shadow-2xl p-1.5 hidden group-hover:block z-50 animate-scale-in backdrop-blur-xl">
               <div className="px-2.5 py-1 text-[10px] font-mono text-zinc-500 uppercase tracking-wider border-b border-zinc-900 mb-1">
-                Select Inference Model
+                Active Inference Engine
               </div>
               {AVAILABLE_MODELS.map((modelItem) => {
                 const isSelected = modelItem.id === selectedModel;
@@ -467,12 +559,12 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
                     }}
                     className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-mono transition-all text-left ${
                       isSelected
-                        ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-semibold"
+                        ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-semibold shadow-xs"
                         : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate">
-                      <span>{modelItem.icon}</span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-cyan-400" : "bg-zinc-600"}`} />
                       <span className="truncate">{modelItem.name}</span>
                     </div>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-500">
@@ -489,20 +581,20 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
           {messages.length > 0 && (
             <button
               onClick={handleExportReport}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-cyan-600 dark:hover:text-cyan-400 hover:border-cyan-400 dark:hover:border-cyan-500/30 transition-all shadow-2xs hover:scale-102"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono bg-gradient-to-b from-zinc-900/90 to-zinc-950/90 border border-zinc-800/80 text-zinc-300 hover:text-cyan-400 hover:border-cyan-500/40 transition-all shadow-2xs hover:scale-102"
               title="Export session as Markdown report"
             >
-              <Download size={13} className="text-cyan-600 dark:text-cyan-400" />
+              <Download size={13} className="text-cyan-400" />
               <span>Export</span>
             </button>
           )}
 
           <button
             onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono border transition-all ${
               showHistoryDrawer
-                ? "bg-cyan-50 dark:bg-cyan-500/10 border-cyan-300 dark:border-cyan-500/30 text-cyan-700 dark:text-cyan-400 font-semibold"
-                : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 shadow-2xs"
+                ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/10 border-cyan-500/40 text-cyan-300 font-semibold shadow-xs"
+                : "bg-gradient-to-b from-zinc-900/90 to-zinc-950/90 border-zinc-800/80 text-zinc-400 hover:text-zinc-200 shadow-2xs hover:border-zinc-700"
             }`}
           >
             <History size={13} />
@@ -511,7 +603,7 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
 
           <button
             onClick={handleNewChat}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition-all shadow-sm hover:shadow-cyan-500/20 active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-mono bg-gradient-to-r from-cyan-500 via-cyan-600 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold transition-all shadow-md shadow-cyan-500/25 border border-cyan-400/30 active:scale-95"
           >
             <Plus size={13} />
             <span>New Chat</span>
@@ -528,32 +620,40 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
         >
           {messages.length === 0 ? (
             /* Welcome / Empty State Screen */
-            <div className="max-w-3xl w-full mx-auto my-auto flex flex-col items-center text-center py-10 animate-fade-in-up">
-              <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-600 dark:text-cyan-400 mb-5 shadow-lg shadow-cyan-500/5 animate-float">
-                <Sparkles size={28} />
+            <div className="max-w-3xl w-full mx-auto my-auto flex flex-col items-center text-center py-12 animate-fade-in-up">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400 mb-6 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Air-Gapped Local Engine</span>
+                <span className="text-zinc-600">•</span>
+                <span className="text-cyan-400 font-semibold">{activeRepoName || "Active Repository"}</span>
               </div>
-              <h2 className="font-heading text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                DevPilot Code Intelligence
+
+              <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-cyan-400 mb-5 shadow-xl shadow-black/40">
+                <DevPilotMark size={28} className="text-cyan-400" />
+              </div>
+
+              <h2 className="font-heading text-2xl font-bold text-zinc-100 tracking-tight">
+                Codebase Intelligence & Reasoning
               </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono mt-1.5 max-w-md">
-                Hybrid semantic retrieval (BM25 + FAISS) grounded in your active repository.
+              <p className="text-xs text-zinc-400 font-mono mt-2 max-w-lg leading-relaxed">
+                Hybrid semantic retrieval (BM25 + FAISS + Cross-Encoder) grounded directly on local source trees.
               </p>
 
               {/* Suggestions Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full mt-8 text-left">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 w-full mt-9 text-left">
                 {promptSuggestions.map((s, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleSubmit(s.prompt)}
-                    className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/30 hover:bg-zinc-50 dark:hover:bg-zinc-900/80 hover:border-cyan-400 dark:hover:border-cyan-500/30 transition-all text-left flex flex-col justify-between group shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-200"
+                    className="p-4 rounded-2xl border border-zinc-800/70 bg-gradient-to-br from-zinc-900/70 via-zinc-900/40 to-zinc-950/80 hover:from-zinc-900 hover:to-cyan-950/30 hover:border-cyan-500/40 hover:shadow-xl hover:shadow-cyan-950/25 transition-all text-left flex flex-col justify-between group duration-200"
                   >
-                    <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center gap-2 mb-2">
                       {s.icon}
-                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+                      <span className="text-xs font-bold text-zinc-200 group-hover:text-cyan-300 transition-colors">
                         {s.title}
                       </span>
                     </div>
-                    <p className="text-[11px] text-zinc-500 font-sans leading-relaxed">
+                    <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
                       {s.desc}
                     </p>
                   </button>
@@ -573,13 +673,13 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
                       className="flex justify-end w-full animate-fade-in"
                     >
                       <div className="max-w-2xl flex flex-col items-end">
-                        <div className="flex items-center gap-1.5 mb-1.5 px-1 text-[10px] font-mono text-zinc-400 dark:text-zinc-500">
-                          <User size={11} className="text-zinc-500 dark:text-zinc-400" />
+                        <div className="flex items-center gap-1.5 mb-1.5 px-1 text-[10px] font-mono text-zinc-400">
+                          <User size={11} className="text-cyan-400" />
                           <span>You</span>
                           <span>•</span>
                           <span>{m.timestamp}</span>
                         </div>
-                        <div className="rounded-2xl px-5 py-3 text-[13px] font-sans leading-relaxed bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm">
+                        <div className="rounded-2xl px-5 py-3 text-[13px] font-sans leading-relaxed bg-gradient-to-br from-zinc-900/95 via-zinc-900/85 to-cyan-950/25 border border-zinc-800/90 text-zinc-100 shadow-md shadow-black/25 hover:border-cyan-500/30 transition-all">
                           <div className="whitespace-pre-wrap font-sans">{m.content}</div>
                         </div>
                       </div>
@@ -590,23 +690,23 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
                 return (
                   <div
                     key={m.id || index}
-                    className="w-full flex flex-col pt-2 pb-6 border-b border-zinc-200 dark:border-zinc-900/90 last:border-b-0 animate-fade-in"
+                    className="w-full flex flex-col pt-2 pb-6 border-b border-zinc-900/90 last:border-b-0 animate-fade-in"
                   >
                     {/* Assistant Header Bar */}
-                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-zinc-200 dark:border-zinc-800/80">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-zinc-800/60">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shrink-0 shadow-2xs">
-                          <Cpu size={16} />
+                        <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-cyan-400 shrink-0 shadow-2xs">
+                          <DevPilotMark size={14} className="text-cyan-400" />
                         </div>
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 font-mono tracking-tight">
-                            DevPilot AI
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-zinc-100 font-mono tracking-tight">
+                            DevPilot Engine
                           </span>
-                          <span className="px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950/80 border border-cyan-200 dark:border-cyan-800/40 text-[10px] font-mono text-cyan-700 dark:text-cyan-400 font-medium">
-                            RAG Grounded
+                          <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-400 font-medium">
+                            Hybrid Grounded
                           </span>
-                          <span className="text-zinc-400 dark:text-zinc-600 text-xs">•</span>
-                          <span className="text-[11px] font-mono text-zinc-400 dark:text-zinc-500">{m.timestamp}</span>
+                          <span className="text-zinc-600 text-xs">•</span>
+                          <span className="text-[11px] font-mono text-zinc-500">{m.timestamp}</span>
                         </div>
                       </div>
 
@@ -617,7 +717,7 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
                             navigator.clipboard.writeText(m.content);
                             toast({ type: "success", title: "Copied response markdown" });
                           }}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-all shadow-2xs text-[11px] font-mono hover:scale-102"
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-b from-zinc-900 to-zinc-950 hover:from-zinc-800 hover:to-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-all shadow-2xs text-[11px] font-mono hover:scale-102"
                           title="Copy response markdown"
                         >
                           <Copy size={12} />
@@ -630,10 +730,10 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
                               const lastUser = [...messages].reverse().find((x) => x.role === "user");
                               if (lastUser) handleRegenerate(lastUser.content);
                             }}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all shadow-2xs text-[11px] font-mono hover:scale-102"
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-b from-zinc-900 to-zinc-950 hover:from-zinc-800 hover:to-zinc-900 border border-zinc-800 text-zinc-300 hover:text-cyan-400 transition-all shadow-2xs text-[11px] font-mono hover:scale-102"
                             title="Regenerate this response"
                           >
-                            <RefreshCw size={12} className="text-cyan-600 dark:text-cyan-400" />
+                            <RefreshCw size={12} className="text-cyan-400" />
                             <span>Regenerate</span>
                           </button>
                         )}
@@ -806,14 +906,22 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
                                   const language = match ? match[1].toLowerCase() : "";
                                   const codeContent = String(children).replace(/\n$/, "");
 
+                                  // Inline code snippets (e.g. `flowchart LR` inside text) must never trigger diagram render
+                                  const isInline = !match && !codeContent.includes("\n");
+
                                   const isMermaid =
-                                    language === "mermaid" ||
-                                    language === "flowchart" ||
-                                    language === "graph" ||
-                                    /^\s*(?:Mermaid\s+Syntax:\s*)?(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|journey|gitGraph)\b/i.test(codeContent);
+                                    !isInline &&
+                                    (language === "mermaid" ||
+                                      language === "flowchart" ||
+                                      language === "graph" ||
+                                      (/^\s*(?:Mermaid\s+Syntax:\s*)?(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|journey|gitGraph)\b/i.test(codeContent) &&
+                                        hasActualDiagramContent(codeContent)));
 
                                   if (isMermaid) {
                                     const cleanCode = codeContent.replace(/^\s*Mermaid\s+Syntax:\s*/i, "");
+                                    if (!hasActualDiagramContent(cleanCode)) {
+                                      return null;
+                                    }
                                     return <MermaidBlock>{cleanCode}</MermaidBlock>;
                                   }
 
@@ -907,14 +1015,14 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
       </div>
 
       {/* Expandable Low-Profile Composer Footer */}
-      <div className="p-4 bg-white/95 dark:bg-zinc-950/95 border-t border-zinc-200 dark:border-zinc-900/80 shrink-0 backdrop-blur-xl transition-colors duration-300">
+      <div className="p-4 bg-zinc-950/80 border-t border-zinc-900/80 shrink-0 backdrop-blur-2xl transition-colors duration-300">
         <div className="max-w-5xl xl:max-w-6xl w-full mx-auto relative">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               if (!showSlashMenu) handleSubmit();
             }}
-            className="rounded-2xl border border-zinc-200 dark:border-zinc-800/90 bg-white dark:bg-zinc-900/70 backdrop-blur-md p-2.5 focus-within:border-cyan-500/60 focus-within:ring-2 focus-within:ring-cyan-500/20 transition-all shadow-md dark:shadow-2xl relative"
+            className="rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/90 via-zinc-900/70 to-zinc-950/90 backdrop-blur-xl p-3 focus-within:border-cyan-500/60 focus-within:ring-2 focus-within:ring-cyan-500/20 focus-within:shadow-xl focus-within:shadow-cyan-950/30 transition-all shadow-xl shadow-black/40 relative"
           >
             {/* Quick Slash Commands Popup */}
             {showSlashMenu && (
@@ -954,33 +1062,58 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
                 }
               }}
               placeholder={`Ask anything about ${activeRepoName || "the active codebase"}... (Type '/' for quick commands)`}
-              className="w-full bg-transparent px-3 py-2 text-[13px] font-sans text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 resize-none outline-none leading-relaxed min-h-[44px]"
+              className="w-full bg-transparent px-3 py-2 text-[13px] font-sans text-zinc-100 placeholder:text-zinc-500 resize-none outline-none leading-relaxed min-h-[44px]"
             />
 
-            <div className="flex items-center justify-between px-3 pt-2 border-t border-zinc-100 dark:border-zinc-800/50 text-[11px] font-mono text-zinc-500">
+            <div className="flex items-center justify-between px-3 pt-2.5 border-t border-zinc-800/60 text-[11px] font-mono text-zinc-500">
               <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-                  <GitBranch size={11} className="text-cyan-600 dark:text-cyan-400" />
-                  <span className="text-[10px] text-zinc-600 dark:text-zinc-400 font-semibold">{activeRepoName || "devpilot-ai"}</span>
+                <span className="flex items-center gap-1.5 text-zinc-400">
+                  <GitBranch size={11} className="text-cyan-400" />
+                  <span className="text-[10px] text-zinc-400 font-semibold">{activeRepoName || "devpilot-ai"}</span>
                 </span>
-                <span className="text-zinc-300 dark:text-zinc-700">•</span>
-                <span className="text-cyan-600 dark:text-cyan-400 font-semibold cursor-pointer hover:underline text-[10px]" onClick={() => { setInput("/"); setShowSlashMenu(true); }}>
+                <span className="text-zinc-700">•</span>
+                <span className="text-cyan-400 font-semibold cursor-pointer hover:underline text-[10px]" onClick={() => { setInput("/"); setShowSlashMenu(true); }}>
                   / quick actions
                 </span>
-                {input.length > 0 && (
+                {isListening && (
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-[10px] font-mono animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                    Listening...
+                  </span>
+                )}
+                {input.length > 0 && !isListening && (
                   <>
-                    <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                    <span className="text-zinc-700">•</span>
                     <span>{input.length} chars</span>
                   </>
                 )}
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Voice Input Microphone Trigger */}
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  disabled={loading}
+                  className={`flex items-center justify-center p-2 rounded-xl border transition-all active:scale-95 disabled:opacity-40 ${
+                    isListening
+                      ? "bg-rose-500/20 border-rose-500/50 text-rose-400 animate-pulse shadow-md shadow-rose-500/25 ring-2 ring-rose-500/30"
+                      : "bg-gradient-to-b from-zinc-900 to-zinc-950 hover:from-zinc-800 hover:to-zinc-900 border-zinc-800 text-zinc-400 hover:text-cyan-400 hover:border-cyan-500/30 shadow-2xs"
+                  }`}
+                  title={isListening ? "Listening... Click to stop" : "Speak prompt (Voice to Text)"}
+                >
+                  {isListening ? (
+                    <MicOff size={14} className="text-rose-400" />
+                  ) : (
+                    <Mic size={14} />
+                  )}
+                </button>
+
                 {loading ? (
                   <button
                     type="button"
                     onClick={handleStopGeneration}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25 text-xs font-semibold transition-all active:scale-95"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 hover:bg-rose-500/25 text-xs font-semibold transition-all active:scale-95 shadow-sm"
                   >
                     <Square size={11} className="fill-current" />
                     <span>Stop</span>
@@ -989,7 +1122,7 @@ export const AskWorkspace: React.FC<AskWorkspaceProps> = ({
                   <button
                     type="submit"
                     disabled={!input.trim()}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:hover:bg-cyan-600 text-white text-xs font-bold transition-all shadow-md shadow-cyan-600/15 hover:shadow-cyan-500/25 active:scale-95"
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 via-cyan-600 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-40 disabled:hover:from-cyan-600 disabled:hover:to-blue-600 text-white text-xs font-bold transition-all shadow-md shadow-cyan-500/25 active:scale-95 border border-cyan-400/20"
                   >
                     <Send size={12} />
                     <span>Send</span>

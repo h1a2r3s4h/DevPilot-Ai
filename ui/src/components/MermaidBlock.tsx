@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Download,
   X,
+  Network
 } from "lucide-react";
 
 // Helper to configure Mermaid for obsidian dark mode
@@ -62,16 +63,65 @@ export const configureMermaidTheme = () => {
 configureMermaidTheme();
 
 /**
+ * Checks if the mermaid code contains actual nodes, connections, or elements,
+ * rather than just an empty skeleton/declaration like "flowchart LR" with no nodes.
+ */
+export function hasActualDiagramContent(code: string): boolean {
+  if (!code || !code.trim()) return false;
+  const stripped = code.replace(/^```(?:mermaid)?/i, "").replace(/```$/, "").trim();
+  const lines = stripped.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lines.length <= 1) {
+    return /(?:-->|==>|-\.->|---|->|<-)/.test(stripped) || /[a-zA-Z0-9_]+\s*(?:\[|\(|\{|\(\()/.test(stripped);
+  }
+  return lines.slice(1).some((l) =>
+    /(?:-->|==>|-\.->|---|->|<-|participant|actor|class\b|state\b|title\b)/i.test(l) ||
+    /[a-zA-Z0-9_]+\s*(?:\[|\(|\{|\(\()/.test(l)
+  );
+}
+
+/**
  * Robust sanitizer for Mermaid code emitted by LLMs.
  * Fixes single-dash arrows (->), unquoted slashes in brackets ([/path]),
  * unquoted subgraph titles, unclosed subgraphs, and markdown code fences.
  */
-export function sanitizeMermaidCode(raw: string, stripSubgraphs: boolean = false): string {
+export function sanitizeMermaidCode(raw: string, aggressive: boolean = false): string {
   if (!raw || !raw.trim()) return "";
   let code = raw.trim();
 
   // Strip markdown code fences if wrapped
   code = code.replace(/^```(?:mermaid)?\s*/i, "").replace(/```$/i, "").trim();
+
+  // Remove backticks completely (often used by LLMs around URLs or variables)
+  code = code.replace(/`/g, "");
+
+  // Fix arrows: -> to -->, <- to <--
+  code = code.replace(/(?<![-.=>])->(?!>)/g, "-->");
+  code = code.replace(/(?<![<])<-(?![-.=<])/g, "<--");
+  code = code.replace(/--\s+>/g, "-->");
+  code = code.replace(/==\s+>/g, "==>");
+  code = code.replace(/-\.\s+>/g, "-.->");
+
+  // Fix bracket labels: NodeId[...]
+  // Turn literal \n or \\n into <br/>, escape double quotes, ensure valid string quotes
+  code = code.replace(/([a-zA-Z0-9_-]+)\[([\s\S]*?)\](?=\s*(?:-->|==>|-\.->|---|\||\n|$))/g, (_match, id, inner) => {
+    let cleanInner = inner.trim();
+    if (cleanInner.startsWith('"') && cleanInner.endsWith('"')) {
+      cleanInner = cleanInner.slice(1, -1);
+    }
+    // Replace \n and \\n with <br/>
+    cleanInner = cleanInner.replace(/\\n/g, "<br/>").replace(/\n/g, "<br/>");
+    // Escape internal double quotes to single quotes
+    cleanInner = cleanInner.replace(/"/g, "'");
+
+    if (aggressive) {
+      // Strip HTML tags like <b>, </b>, <span>, etc.
+      cleanInner = cleanInner.replace(/<[^>]+>/g, "");
+      // Clean special characters that break Mermaid lexer
+      cleanInner = cleanInner.replace(/[${}]/g, "");
+    }
+
+    return `${id}["${cleanInner}"]`;
+  });
 
   // Check for valid diagram declaration
   const validStarts = [
@@ -101,7 +151,7 @@ export function sanitizeMermaidCode(raw: string, stripSubgraphs: boolean = false
     let l = line;
 
     // Optional aggressive mode: strip subgraphs if they cause parsing bugs
-    if (stripSubgraphs) {
+    if (aggressive) {
       if (/^\s*subgraph\b/i.test(l) || /^\s*end\b/i.test(l)) {
         continue;
       }
@@ -110,13 +160,6 @@ export function sanitizeMermaidCode(raw: string, stripSubgraphs: boolean = false
     // Track subgraphs & ends
     if (/^\s*subgraph\b/i.test(l)) subgraphCount++;
     if (/^\s*end\b/i.test(l)) endCount++;
-
-    // Fix arrows: -> to -->, <- to <--
-    l = l.replace(/(?<![-.=>])->(?!>)/g, "-->");
-    l = l.replace(/(?<![<])<-(?![-.=<])/g, "<--");
-    l = l.replace(/--\s+>/g, "-->");
-    l = l.replace(/==\s+>/g, "==>");
-    l = l.replace(/-\.\s+>/g, "-.->");
 
     // Fix unquoted subgraph titles: subgraph Frontend Layer -> subgraph "Frontend Layer"
     const subgraphMatch = l.match(/^(\s*subgraph\s+)([^"\[\n]+)$/i);
@@ -128,34 +171,11 @@ export function sanitizeMermaidCode(raw: string, stripSubgraphs: boolean = false
       }
     }
 
-    // Fix bracket labels: NodeId[Label] -> NodeId["Label"]
-    l = l.replace(/([a-zA-Z0-9_]+)\[([^\]\n]+)\]/g, (_match, id, inner) => {
-      const trimmed = inner.trim();
-      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-        return `${id}[${trimmed}]`;
-      }
-      const cleanInner = trimmed.replace(/"/g, "'");
-      return `${id}["${cleanInner}"]`;
-    });
-
-    // Fix parentheses labels with slashes or colons
-    l = l.replace(/([a-zA-Z0-9_]+)\(([^)\n]+)\)/g, (_match, id, inner) => {
-      const trimmed = inner.trim();
-      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-        return `${id}("${trimmed.slice(1, -1)}")`;
-      }
-      if (/[/\\:\-()]/.test(trimmed)) {
-        const cleanInner = trimmed.replace(/"/g, "'");
-        return `${id}["${cleanInner}"]`;
-      }
-      return `${id}("${trimmed}")`;
-    });
-
     sanitizedLines.push(l);
   }
 
   // Auto-close any unclosed subgraphs
-  if (!stripSubgraphs) {
+  if (!aggressive) {
     while (subgraphCount > endCount) {
       sanitizedLines.push("    end");
       endCount++;
@@ -169,7 +189,7 @@ interface MermaidBlockProps {
   children: string;
 }
 
-export const MermaidBlock: React.FC<MermaidBlockProps> = ({ children }) => {
+const MermaidBlockRenderer: React.FC<MermaidBlockProps> = ({ children }) => {
   const [svg, setSvg] = useState<string>("");
   const [renderError, setRenderError] = useState<string | null>(null);
   const [showCode, setShowCode] = useState(false);
@@ -426,40 +446,40 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({ children }) => {
   return (
     <>
       {/* Standard In-line Diagram Card */}
-      <div className="my-6 rounded-2xl border border-zinc-200 dark:border-zinc-800/90 overflow-hidden bg-white dark:bg-zinc-950/90 backdrop-blur-md shadow-md dark:shadow-2xl transition-all">
+      <div className="my-6 rounded-2xl border border-zinc-800/80 hover:border-cyan-500/40 overflow-hidden bg-gradient-to-b from-zinc-900/90 via-zinc-950/95 to-zinc-950 backdrop-blur-xl shadow-xl shadow-cyan-950/20 transition-all">
         {/* Header Bar */}
-        <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-zinc-100/90 dark:bg-zinc-900/90 border-b border-zinc-200 dark:border-zinc-800 text-[11px] font-mono gap-2">
-          <div className="flex items-center gap-2 font-medium text-cyan-600 dark:text-cyan-400">
-            <GitFork size={14} className="text-cyan-600 dark:text-cyan-400" />
-            <span className="tracking-wide uppercase font-semibold text-[10px]">
-              System Architecture Flowchart
+        <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-zinc-900/90 border-b border-zinc-800/80 text-[11px] font-mono gap-2">
+          <div className="flex items-center gap-2">
+            <Network size={14} className="text-cyan-400" />
+            <span className="tracking-wide uppercase font-semibold text-[10px] text-zinc-300">
+              System Architecture & Execution Flow
             </span>
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
             {/* Zoom Controls */}
             {!showCode && svg && (
-              <div className="flex items-center bg-white dark:bg-zinc-800/90 rounded-lg p-0.5 border border-zinc-200 dark:border-zinc-700/60 mr-1 shadow-2xs">
+              <div className="flex items-center bg-zinc-950 rounded-lg p-0.5 border border-zinc-800 mr-1 shadow-2xs">
                 <button
                   onClick={handleZoomOut}
-                  className="p-1 hover:text-cyan-600 dark:hover:text-cyan-400 text-zinc-500 dark:text-zinc-400 rounded transition-colors"
+                  className="p-1 hover:text-cyan-400 text-zinc-400 rounded transition-colors"
                   title="Zoom Out"
                 >
                   <ZoomOut size={12} />
                 </button>
-                <span className="px-1.5 text-[10px] text-zinc-700 dark:text-zinc-300 font-mono select-none">
+                <span className="px-1.5 text-[10px] text-zinc-400 font-mono select-none">
                   {Math.round(zoom * 100)}%
                 </span>
                 <button
                   onClick={handleZoomIn}
-                  className="p-1 hover:text-cyan-600 dark:hover:text-cyan-400 text-zinc-500 dark:text-zinc-400 rounded transition-colors"
+                  className="p-1 hover:text-cyan-400 text-zinc-400 rounded transition-colors"
                   title="Zoom In"
                 >
                   <ZoomIn size={12} />
                 </button>
                 <button
                   onClick={handleResetZoom}
-                  className="p-1 hover:text-cyan-600 dark:hover:text-cyan-400 text-zinc-500 dark:text-zinc-400 rounded transition-colors border-l border-zinc-200 dark:border-zinc-700/60 ml-0.5"
+                  className="p-1 hover:text-cyan-400 text-zinc-400 rounded transition-colors border-l border-zinc-800 ml-0.5"
                   title="Reset Zoom"
                 >
                   <RotateCcw size={11} />
@@ -471,7 +491,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({ children }) => {
             {!showCode && svg && (
               <button
                 onClick={() => setIsFullscreen(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-50 dark:bg-cyan-500/15 hover:bg-cyan-100 dark:hover:bg-cyan-500/25 border border-cyan-200 dark:border-cyan-500/40 text-cyan-700 dark:text-cyan-300 transition-colors text-[10px] font-medium"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 transition-all text-[10px] font-medium shadow-2xs active:scale-95"
                 title="Expand to Fullscreen View"
               >
                 <Maximize2 size={11} />
@@ -482,20 +502,20 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({ children }) => {
             {/* Code / Diagram Toggle */}
             <button
               onClick={() => setShowCode(!showCode)}
-              className="flex items-center gap-1 px-2 py-1 rounded bg-white dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-transparent transition-colors text-[10px]"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-colors text-[10px]"
               title={showCode ? "Switch to Flowchart View" : "View Mermaid Code"}
             >
-              {showCode ? <Eye size={11} className="text-cyan-600 dark:text-cyan-400" /> : <Code2 size={11} className="text-cyan-600 dark:text-cyan-400" />}
-              <span>{showCode ? "Diagram" : "Code"}</span>
+              {showCode ? <Eye size={11} className="text-cyan-400" /> : <Code2 size={11} className="text-cyan-400" />}
+              <span>{showCode ? "Diagram" : "Source"}</span>
             </button>
 
             {/* Copy Button */}
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1 px-2 py-1 rounded bg-white dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-transparent transition-colors text-[10px]"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-colors text-[10px]"
               title="Copy Mermaid source"
             >
-              {copied ? <Check size={11} className="text-emerald-500 dark:text-emerald-400" /> : <Copy size={11} className="text-zinc-400" />}
+              {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} className="text-zinc-400" />}
               <span>{copied ? "Copied" : "Copy"}</span>
             </button>
 
@@ -552,11 +572,16 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({ children }) => {
                 justify-content: center;
                 align-items: center;
                 width: 100%;
+                min-height: 240px;
+                overflow: visible;
               }
               .devpilot-mermaid-svg svg {
                 background: transparent !important;
-                max-width: none !important;
+                width: 100% !important;
+                max-width: 100% !important;
                 height: auto !important;
+                min-height: 220px !important;
+                display: block !important;
               }
               .devpilot-mermaid-svg svg text {
                 font-family: 'JetBrains Mono', ui-monospace, monospace !important;
@@ -734,4 +759,11 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({ children }) => {
       )}
     </>
   );
+};
+
+export const MermaidBlock: React.FC<MermaidBlockProps> = ({ children }) => {
+  if (!children || !children.trim() || !hasActualDiagramContent(children)) {
+    return null;
+  }
+  return <MermaidBlockRenderer>{children}</MermaidBlockRenderer>;
 };

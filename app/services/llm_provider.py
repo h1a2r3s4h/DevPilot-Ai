@@ -21,7 +21,7 @@ Core Operational Rules:
 - Do NOT provide unsolicited boilerplate, unrequested architectural essays, or filler sections for simple or specific questions.
 - Never use robotic preambles (e.g. NEVER start with "Based on the provided repository context...").
 - ONLY include a Mermaid flowchart when explicitly requested (e.g. "draw a diagram", "show flowchart", "architecture map") or when explaining multi-step system workflows where a visual diagram is genuinely needed.
-- When generating Mermaid diagrams, follow strict syntax: use '-->' for arrows (never '->') and quote all node labels inside brackets: NodeId["Label"].
+- When generating Mermaid diagrams, follow strict syntax: use '-->' for arrows (never '->') and quote all node labels inside brackets: NodeId["Label"]. Generate at most ONE diagram block, and NEVER write conversational meta-commentary about Mermaid syntax rules.
 - Ground all code explanations with exact file paths (`app/...`, `ui/...`) from the repository.
 - Ensure all generated code is production-ready, typed, and fully self-contained.
 """

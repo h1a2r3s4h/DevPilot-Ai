@@ -80,13 +80,13 @@ function MainApp() {
   const getModeMeta = () => {
     switch (activeMode) {
       case "ask":
-        return { badge: "ASK", subtitle: "RAG RETRIEVAL & CODE INTELLIGENCE" };
+        return { badge: "INTELLIGENCE", subtitle: "SEMANTIC REPOSITORY GROUNDING" };
       case "agent":
-        return { badge: "AGENT", subtitle: "MULTI-AGENT ORCHESTRATION PIPELINE" };
+        return { badge: "AGENTS", subtitle: "CLOSED-LOOP MULTI-AGENT PIPELINE" };
       case "repos":
-        return { badge: "REPOS", subtitle: "INDEX & MANAGE CODEBASES" };
+        return { badge: "REPOSITORIES", subtitle: "SYNTAX TREE & EMBEDDING REGISTRY" };
       case "observability":
-        return { badge: "TELEMETRY", subtitle: "LIVE SYSTEM MONITORING & LOGS" };
+        return { badge: "TELEMETRY", subtitle: "METRICS, TRACES & GUARDRAIL AUDITS" };
       default:
         return { badge: "", subtitle: "" };
     }
@@ -95,7 +95,7 @@ function MainApp() {
   const { badge, subtitle } = getModeMeta();
 
   return (
-    <div className="flex h-screen w-screen bg-zinc-950 overflow-hidden text-zinc-100 font-sans antialiased dark select-none">
+    <div className="flex h-screen w-screen bg-mesh-dark overflow-hidden text-zinc-100 font-sans antialiased dark select-none relative">
       {/* Collapsible Sidebar */}
       <Sidebar
         activeMode={activeMode}
@@ -107,20 +107,21 @@ function MainApp() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Glow Accent Ambient Background Light */}
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-radial from-cyan-500/5 to-transparent blur-3xl pointer-events-none z-0 animate-pulse-slow" />
+        {/* Glow Accent Ambient Background Lights */}
+        <div className="absolute top-0 right-1/4 w-[480px] h-[320px] bg-gradient-to-br from-cyan-500/10 via-blue-600/5 to-transparent blur-3xl pointer-events-none z-0 animate-pulse-slow" />
+        <div className="absolute bottom-10 left-1/4 w-[380px] h-[260px] bg-gradient-to-tr from-indigo-500/5 via-cyan-500/5 to-transparent blur-3xl pointer-events-none z-0" />
 
         {/* Global Sticky Header */}
-        <header className="flex items-center justify-between px-8 h-14 border-b border-zinc-900 bg-zinc-950/85 backdrop-blur-md z-20 select-none shrink-0">
+        <header className="flex items-center justify-between px-8 h-14 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-900/80 z-20 select-none shrink-0">
           <div className="flex items-center gap-3">
-            <span className="font-heading text-sm font-black text-zinc-100 tracking-tight">
+            <span className="font-heading text-sm font-black tracking-tight bg-gradient-to-r from-zinc-100 via-cyan-200 to-zinc-400 bg-clip-text text-transparent">
               DevPilot
             </span>
 
             <div className="w-[1px] h-3.5 bg-zinc-800" />
 
             {badge && (
-              <span className="text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/25 px-2 py-0.5 rounded-md tracking-wider">
+              <span className="text-[10px] font-bold bg-gradient-to-r from-cyan-500/20 to-blue-500/10 text-cyan-300 border border-cyan-500/30 px-2.5 py-0.5 rounded-full tracking-wider shadow-xs shadow-cyan-500/10">
                 {badge}
               </span>
             )}
@@ -137,7 +138,7 @@ function MainApp() {
             {/* Quick Command Palette Button */}
             <button
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-all font-mono shadow-sm"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-b from-zinc-900/80 to-zinc-950/80 hover:from-zinc-800/80 hover:to-zinc-900/80 border border-zinc-800/80 hover:border-cyan-500/30 text-xs text-zinc-400 hover:text-zinc-200 transition-all font-mono shadow-sm"
               title="Open Command Palette (⌘K)"
             >
               <Search size={13} className="text-zinc-500" />
@@ -149,8 +150,8 @@ function MainApp() {
 
             {/* Active Repo Pill */}
             {activeRepoName && (
-              <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 text-[11px] font-mono text-zinc-300 shadow-2xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-zinc-900/70 to-zinc-950/70 border border-zinc-800/80 text-[11px] font-mono text-zinc-300 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50 animate-pulse" />
                 <span className="text-zinc-500">Repo:</span>
                 <span className="text-cyan-400 font-semibold truncate max-w-[140px]">{activeRepoName}</span>
               </div>
@@ -159,13 +160,16 @@ function MainApp() {
             {/* Quick Settings Trigger */}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 text-zinc-500 hover:text-zinc-300 rounded-xl hover:bg-zinc-900 transition-colors"
+              className="p-2 text-zinc-500 hover:text-zinc-300 rounded-xl hover:bg-zinc-900/80 transition-colors"
               title="Platform Settings"
             >
               <Settings size={16} />
             </button>
           </div>
         </header>
+
+        {/* Cyberpunk Accent Gradient Line under Header */}
+        <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent z-20 shrink-0" />
 
         {/* Content routing based on mode with smooth animation */}
         <div key={activeMode} className="flex-1 overflow-hidden flex flex-col relative z-10 animate-fade-in">

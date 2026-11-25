@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { DiffPreviewModal } from "./DiffPreviewModal";
-import { MermaidBlock } from "./MermaidBlock";
+import { MermaidBlock, hasActualDiagramContent } from "./MermaidBlock";
 
 interface Message {
   role: "user" | "assistant";
@@ -338,16 +338,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ mode }) => {
                             pre: ({ children }) => <div>{children}</div>,
                             code: ({ node, className, children, ...props }) => {
                               const match = /language-(\w+)/.exec(className || "");
-                              if (match && match[1] === "mermaid") {
-                                return (
-                                  <MermaidBlock>
-                                    {String(children).replace(/\n$/, "")}
-                                  </MermaidBlock>
-                                );
+                              const content = String(children).replace(/\n$/, "");
+                              const isInline = !match && !content.includes("\n");
+
+                              const isMermaid =
+                                !isInline &&
+                                ((match && match[1] === "mermaid") ||
+                                  (/^\s*(?:Mermaid\s+Syntax:\s*)?(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|journey|gitGraph)\b/i.test(content) &&
+                                    hasActualDiagramContent(content)));
+
+                              if (isMermaid) {
+                                const cleanCode = content.replace(/^\s*Mermaid\s+Syntax:\s*/i, "");
+                                if (!hasActualDiagramContent(cleanCode)) {
+                                  return null;
+                                }
+                                return <MermaidBlock>{cleanCode}</MermaidBlock>;
                               }
                               return match ? (
                                 <CodeBlock className={className} onDiffPreview={handleOpenDiffPreview} {...props}>
-                                  {String(children).replace(/\n$/, "")}
+                                  {content}
                                 </CodeBlock>
                               ) : (
                                 <code className="bg-zinc-900 border border-zinc-800 text-cyan-400/90 text-xs px-1.5 py-0.5 rounded font-mono" {...props}>
